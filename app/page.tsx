@@ -319,65 +319,66 @@ export default function DashboardPage() {
               const colors = getAIColor(pick.ai_name)
               
               return (
-                <div
-                  key={pick.id}
-                  className="bg-slate-900/50 rounded-xl p-6 border border-slate-800 hover:border-slate-700 transition-all card-hover"
-                >
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
-                      <h3 className="text-2xl font-bold text-white">{pick.symbol}</h3>
-                      <p className="text-xs text-slate-400">{formatTimeAgo(pick.created_at)}</p>
-                    </div>
-                    <div
-                      className="px-3 py-1 rounded-full text-xs font-semibold"
-                      style={{ background: `linear-gradient(135deg, ${colors.primary}, ${colors.secondary})` }}
-                    >
-                      {pick.ai_name}
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4 mb-4">
-                    <div>
-                      <p className="text-xs text-slate-400 mb-1">Entry Price</p>
-                      <p className="text-lg font-semibold">{formatCurrency(pick.entry_price)}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-slate-400 mb-1">Target Price</p>
-                      <p className="text-lg font-semibold text-green-400">{formatCurrency(pick.target_price)}</p>
-                    </div>
-                  </div>
-
-                  <div className="mb-4">
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="text-xs text-slate-400">Potential Gain</span>
-                      <span className={`text-sm font-bold ${potentialGain >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                        {formatPercentage(potentialGain)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="text-xs text-slate-400">Confidence</span>
-                      <span className="text-sm font-semibold">{pick.confidence_score}%</span>
-                    </div>
-                    <div className="w-full bg-slate-800 rounded-full h-2">
+                <Link key={pick.id} href={`/stock/${pick.symbol}`}>
+                  <div
+                    className="bg-slate-900/50 rounded-xl p-6 border border-slate-800 hover:border-brand-cyan/50 transition-all card-hover cursor-pointer"
+                  >
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <h3 className="text-2xl font-bold text-white">{pick.symbol}</h3>
+                        <p className="text-xs text-slate-400">{formatTimeAgo(pick.created_at)}</p>
+                      </div>
                       <div
-                        className={`h-2 rounded-full transition-all ${
-                          pick.confidence_score >= 80 ? 'bg-gradient-to-r from-green-500 to-emerald-500' :
-                          pick.confidence_score >= 60 ? 'bg-gradient-to-r from-yellow-500 to-orange-500' :
-                          'bg-gradient-to-r from-red-500 to-pink-500'
-                        }`}
-                        style={{ width: `${pick.confidence_score}%` }}
-                      ></div>
+                        className="px-3 py-1 rounded-full text-xs font-semibold"
+                        style={{ background: `linear-gradient(135deg, ${colors.primary}, ${colors.secondary})` }}
+                      >
+                        {pick.ai_name}
+                      </div>
                     </div>
-                  </div>
 
-                  <div className="text-xs text-slate-400 bg-slate-800/30 rounded-lg p-3 mb-4 line-clamp-2">
-                    {pick.reasoning}
-                  </div>
+                    <div className="grid grid-cols-2 gap-4 mb-4">
+                      <div>
+                        <p className="text-xs text-slate-400 mb-1">Entry Price</p>
+                        <p className="text-lg font-semibold">{formatCurrency(pick.entry_price)}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-400 mb-1">Target Price</p>
+                        <p className="text-lg font-semibold text-green-400">{formatCurrency(pick.target_price)}</p>
+                      </div>
+                    </div>
 
-                  <button className="w-full bg-gradient-to-r from-brand-cyan to-blue-500 hover:from-brand-cyan/80 hover:to-blue-500/80 text-white font-bold py-3 rounded-lg transition-all">
-                    Add to Watchlist ⭐
-                  </button>
-                </div>
+                    <div className="mb-4">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-xs text-slate-400">Potential Gain</span>
+                        <span className={`text-sm font-bold ${potentialGain >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                          {formatPercentage(potentialGain)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-xs text-slate-400">Confidence</span>
+                        <span className="text-sm font-semibold">{pick.confidence_score}%</span>
+                      </div>
+                      <div className="w-full bg-slate-800 rounded-full h-2">
+                        <div
+                          className={`h-2 rounded-full transition-all ${
+                            pick.confidence_score >= 80 ? 'bg-gradient-to-r from-green-500 to-emerald-500' :
+                            pick.confidence_score >= 60 ? 'bg-gradient-to-r from-yellow-500 to-orange-500' :
+                            'bg-gradient-to-r from-red-500 to-pink-500'
+                          }`}
+                          style={{ width: `${pick.confidence_score}%` }}
+                        ></div>
+                      </div>
+                    </div>
+
+                    <div className="text-xs text-slate-400 bg-slate-800/30 rounded-lg p-3 mb-4 line-clamp-2">
+                      {pick.reasoning}
+                    </div>
+
+                    <button className="w-full bg-gradient-to-r from-brand-cyan to-blue-500 hover:from-brand-cyan/80 hover:to-blue-500/80 text-white font-bold py-3 rounded-lg transition-all" onClick={(e) => e.preventDefault()}>
+                      View Details →
+                    </button>
+                  </div>
+                </Link>
               )
             })}
           </div>
