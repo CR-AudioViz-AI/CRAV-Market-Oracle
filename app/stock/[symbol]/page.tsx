@@ -109,7 +109,7 @@ export default function StockDetailPage() {
   const latestPick = picks[0]
   const avgConfidence = picks.reduce((sum, p) => sum + p.confidence_score, 0) / picks.length
   const avgTargetPrice = picks.reduce((sum, p) => sum + p.target_price, 0) / picks.length
-  const consensusBullish = picks.filter(p => p.direction === 'bullish').length > picks.length / 2
+  const consensusBullish = picks.filter(p => p.target_price > p.entry_price).length > picks.length / 2
   const uniqueAIs = new Set(picks.map(p => p.ai_name)).size
 
   return (
@@ -358,3 +358,4 @@ export default function StockDetailPage() {
     </div>
   )
 }
+
