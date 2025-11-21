@@ -53,7 +53,8 @@
   * {
   }
   body {
-    @apply bg-background text-foreground;
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
   }
 }
 
@@ -64,15 +65,16 @@
 }
 
 ::-webkit-scrollbar-track {
-  @apply bg-slate-900;
+  background-color: #0f172a;
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply bg-slate-700 rounded-lg;
+  background-color: #334155;
+  border-radius: 0.5rem;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  @apply bg-slate-600;
+  background-color: #475569;
 }
 
 /* Gradient text utility */
