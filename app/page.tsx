@@ -10,6 +10,7 @@ import { StockScreener } from '@/components/StockScreener'
 import { AIPerformanceHeatMap } from '@/components/AIPerformanceHeatMap'
 import { AchievementSystem } from '@/components/AchievementSystem'
 import { RealTimePriceTracker } from '@/components/RealTimePriceTracker'
+import { EmptyState } from '@/components/EmptyState'
 
 export default function DashboardPage() {
   const [picks, setPicks] = useState<StockPick[]>([])
@@ -41,11 +42,15 @@ export default function DashboardPage() {
         getAIStatistics(),
         getHotPicks()
       ])
-      setPicks(picksData)
-      setStats(statsData)
-      setHotPicks(hotPicksData)
+      setPicks(picksData || [])
+      setStats(statsData || [])
+      setHotPicks(hotPicksData || [])
     } catch (error) {
       console.error('Error loading data:', error)
+      // Set empty arrays on error to show empty state
+      setPicks([])
+      setStats([])
+      setHotPicks([])
     } finally {
       setLoading(false)
     }
@@ -98,6 +103,50 @@ export default function DashboardPage() {
         <div className="text-center">
           <div className="spinner mx-auto mb-4"></div>
           <p className="text-slate-400">Loading Market Oracle...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Show empty state when there's no data
+  if (picks.length === 0) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+        <div className="container mx-auto px-4 py-8">
+          <EmptyState
+            title="No Stock Picks Yet"
+            description="The AI models haven't generated any predictions yet. This is a clean slate - no fake data, just waiting for real AI analysis to begin."
+            showAction={false}
+          />
+          
+          <div className="mt-12 max-w-4xl mx-auto">
+            <h3 className="text-lg font-semibold text-white mb-4 text-center">
+              What's Next?
+            </h3>
+            <div className="grid md:grid-cols-3 gap-6">
+              <div className="bg-slate-800/50 p-6 rounded-lg shadow-sm border border-slate-700">
+                <div className="text-3xl mb-3">🤖</div>
+                <h4 className="font-semibold text-white mb-2">5 AI Models</h4>
+                <p className="text-sm text-slate-400">
+                  GPT-4, Claude, Gemini, Perplexity, and Groq will analyze stocks in real-time
+                </p>
+              </div>
+              <div className="bg-slate-800/50 p-6 rounded-lg shadow-sm border border-slate-700">
+                <div className="text-3xl mb-3">⚔️</div>
+                <h4 className="font-semibold text-white mb-2">AI vs AI Battles</h4>
+                <p className="text-sm text-slate-400">
+                  Watch AI models compete with real predictions and track performance
+                </p>
+              </div>
+              <div className="bg-slate-800/50 p-6 rounded-lg shadow-sm border border-slate-700">
+                <div className="text-3xl mb-3">📈</div>
+                <h4 className="font-semibold text-white mb-2">Real Data Only</h4>
+                <p className="text-sm text-slate-400">
+                  All predictions will be real, tracked, and verified - no fake data
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     )
