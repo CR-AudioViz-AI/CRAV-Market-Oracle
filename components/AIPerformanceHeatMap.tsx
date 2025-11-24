@@ -22,11 +22,11 @@ export function AIPerformanceHeatMap() {
         const date = new Date(pick.created_at).toLocaleDateString()
         const gain = calculateGainPercentage(pick.entry_price, pick.target_price)
         
-        if (!aiDateMap.has(pick.ai_name)) {
-          aiDateMap.set(pick.ai_name, new Map())
+        if (!aiDateMap.has(pick.ai_name || 'Unknown')) {
+          aiDateMap.set(pick.ai_name || 'Unknown', new Map())
         }
         
-        const dateMap = aiDateMap.get(pick.ai_name)!
+        const dateMap = aiDateMap.get(pick.ai_name || 'Unknown')!
         if (!dateMap.has(date)) {
           dateMap.set(date, 0)
         }
