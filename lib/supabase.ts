@@ -1,247 +1,344 @@
-import { createClient } from '@supabase/supabase-js'
+// lib/supabase.ts - Market Oracle V3
+import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-// Types matching frontend expectations
-export type StockPick = {
-  id: string
-  battle_id: string
-  ai_model_id: string
-  ai_name: string
-  symbol: string
-  entry_price: number
-  target_price: number
-  confidence_score: number
-  reasoning: string
-  status: 'OPEN' | 'CLOSED'
-  pick_date: string
-  created_at: string
-  // Additional fields from new schema
-  direction?: string
-  stop_loss?: number
-  current_price?: number
-  profit_loss?: number
+// Types
+export type Category = 'regular' | 'penny' | 'crypto' | 'all';
+export type Direction = 'UP' | 'DOWN' | 'HOLD';
+export type PickStatus = 'active' | 'won' | 'lost' | 'expired';
+
+export interface StockPick {
+  id: string;
+  competition_id: string;
+  ai_model_id: string;
+  ticker: string;
+  symbol: string; // Alias
+  category: Category;
+  direction: Direction;
+  confidence: number;
+  confidence_score: number; // Alias
+  entry_price: number;
+  target_price: number;
+  stop_loss: number;
+  reasoning: string;
+  current_price: number | null;
+  price_change_percent: number | null;
+  status: PickStatus;
+  result: string | null;
+  profit_loss: number | null;
+  points_earned: number | null;
+  week_number: number;
+  pick_date: string;
+  expiry_date: string;
+  created_at: string;
+  // Joined
+  ai_name?: string;
+  ai_color?: string;
 }
 
-export type AIModel = {
-  id: string
-  ai_name: string
-  display_name: string
-  provider: string
-  is_active: boolean
-  color_primary: string
-  color_secondary: string
+export interface AIModel {
+  id: string;
+  name: string;
+  display_name: string;
+  provider: string;
+  color: string;
+  is_active: boolean;
+  total_picks: number;
+  total_wins: number;
+  total_losses: number;
+  win_rate: number;
+  specialty?: string;
+  tagline?: string;
 }
 
-// Map database row to frontend format
-function mapPickToFrontend(row: any): StockPick {
-  return {
-    id: row.id,
-    battle_id: row.competition_id || row.battle_id || '',
-    ai_model_id: row.ai_model_id || '',
-    ai_name: row.ai_models?.display_name || row.ai_models?.name || row.ai_name || 'Unknown',
-    symbol: row.ticker || row.symbol || '',
-    entry_price: row.entry_price || 0,
-    target_price: row.target_price || 0,
-    confidence_score: row.confidence || row.confidence_score || 0,
-    reasoning: row.reasoning || '',
-    status: row.status === 'active' ? 'OPEN' : 'CLOSED',
-    pick_date: row.pick_date || row.created_at || '',
-    created_at: row.created_at || '',
-    direction: row.direction,
-    stop_loss: row.stop_loss,
-    current_price: row.current_price,
-    profit_loss: row.profit_loss,
-  }
+export interface WeeklyStanding {
+  id: string;
+  week_number: number;
+  ai_model_id: string;
+  ai_name: string;
+  category: Category;
+  total_picks: number;
+  winning_picks: number;
+  losing_picks: number;
+  win_rate: number;
+  total_profit_loss: number;
+  rank_position: number;
+  points_earned: number;
 }
 
-// Fetch all stock picks
-export async function getAllStockPicks(): Promise<StockPick[]> {
-  try {
-    const { data, error } = await supabase
-      .from('stock_picks')
-      .select(`
-        *,
-        ai_models (name, display_name, color)
-      `)
-      .order('created_at', { ascending: false })
-    
-    if (error) {
-      console.error('Error fetching picks:', error)
-      return []
-    }
-    
-    return (data || []).map(mapPickToFrontend)
-  } catch (e) {
-    console.error('Exception fetching picks:', e)
-    return []
-  }
-}
+// ============================================
+// FETCH FUNCTIONS
+// ============================================
 
-// Fetch stock picks by AI
-export async function getStockPicksByAI(aiName: string): Promise<StockPick[]> {
-  try {
-    // First get the AI model ID
-    const { data: aiModel } = await supabase
-      .from('ai_models')
-      .select('id')
-      .or(`name.eq.${aiName},display_name.eq.${aiName}`)
-      .single()
-    
-    if (!aiModel) return []
-    
-    const { data, error } = await supabase
-      .from('stock_picks')
-      .select(`*, ai_models (name, display_name, color)`)
-      .eq('ai_model_id', aiModel.id)
-      .order('created_at', { ascending: false })
-    
-    if (error) {
-      console.error('Error fetching picks by AI:', error)
-      return []
-    }
-    
-    return (data || []).map(mapPickToFrontend)
-  } catch (e) {
-    console.error('Exception:', e)
-    return []
-  }
-}
-
-// Fetch stock picks with filters
-export async function getStockPicks(filters?: { symbol?: string; aiName?: string; status?: string }): Promise<StockPick[]> {
+// Get all picks with filters
+export async function getPicks(filters?: {
+  category?: Category;
+  aiName?: string;
+  status?: PickStatus;
+  ticker?: string;
+  weekNumber?: number;
+  limit?: number;
+}): Promise<StockPick[]> {
   try {
     let query = supabase
       .from('stock_picks')
       .select(`*, ai_models (name, display_name, color)`)
+      .order('created_at', { ascending: false });
     
-    if (filters?.symbol) {
-      query = query.eq('ticker', filters.symbol.toUpperCase())
+    if (filters?.category && filters.category !== 'all') {
+      query = query.eq('category', filters.category);
     }
-    
     if (filters?.status) {
-      const dbStatus = filters.status === 'OPEN' ? 'active' : filters.status.toLowerCase()
-      query = query.eq('status', dbStatus)
+      query = query.eq('status', filters.status);
+    }
+    if (filters?.ticker) {
+      query = query.eq('ticker', filters.ticker.toUpperCase());
+    }
+    if (filters?.weekNumber) {
+      query = query.eq('week_number', filters.weekNumber);
+    }
+    if (filters?.limit) {
+      query = query.limit(filters.limit);
     }
     
-    query = query.order('created_at', { ascending: false })
+    const { data, error } = await query;
+    if (error) throw error;
     
-    const { data, error } = await query
+    let result = (data || []).map(mapPick);
     
-    if (error) {
-      console.error('Error fetching filtered picks:', error)
-      return []
-    }
-    
-    let result = (data || []).map(mapPickToFrontend)
-    
-    // Filter by AI name if specified (client-side since we need display_name)
     if (filters?.aiName) {
-      result = result.filter(p => 
-        p.ai_name.toLowerCase().includes(filters.aiName!.toLowerCase())
-      )
+      result = result.filter(p => p.ai_name?.toLowerCase().includes(filters.aiName!.toLowerCase()));
     }
     
-    return result
+    return result;
   } catch (e) {
-    console.error('Exception:', e)
-    return []
+    console.error('getPicks error:', e);
+    return [];
   }
 }
 
-// Fetch AI models
+// Legacy function for backward compatibility
+export async function getAllStockPicks(): Promise<StockPick[]> {
+  return getPicks({ limit: 500 });
+}
+
+export async function getStockPicksByAI(aiName: string): Promise<StockPick[]> {
+  return getPicks({ aiName, limit: 100 });
+}
+
+export async function getStockPicks(filters?: { symbol?: string; aiName?: string; status?: string }): Promise<StockPick[]> {
+  return getPicks({
+    ticker: filters?.symbol,
+    aiName: filters?.aiName,
+    status: filters?.status as PickStatus,
+  });
+}
+
+// Get picks by category
+export async function getPicksByCategory(category: Category): Promise<StockPick[]> {
+  return getPicks({ category, limit: 200 });
+}
+
+// Get AI models
 export async function getAIModels(): Promise<AIModel[]> {
   try {
     const { data, error } = await supabase
       .from('ai_models')
       .select('*')
       .eq('is_active', true)
-      .order('display_name')
+      .order('display_name');
     
-    if (error) {
-      console.error('Error fetching AI models:', error)
-      return []
-    }
-    
-    return (data || []).map(row => ({
-      id: row.id,
-      ai_name: row.name,
-      display_name: row.display_name,
-      provider: row.provider,
-      is_active: row.is_active,
-      color_primary: row.color || '#6366f1',
-      color_secondary: row.color || '#818cf8',
-    }))
+    if (error) throw error;
+    return data || [];
   } catch (e) {
-    console.error('Exception:', e)
-    return []
+    console.error('getAIModels error:', e);
+    return [];
   }
 }
 
-// Get hot picks (consensus - stocks picked by multiple AIs)
-export async function getHotPicks(): Promise<any[]> {
+// Get hot/consensus picks
+export async function getHotPicks(category?: Category): Promise<any[]> {
   try {
-    const picks = await getAllStockPicks()
+    const picks = await getPicks({ category, limit: 500 });
     
-    // Group by symbol
-    const symbolMap = new Map<string, StockPick[]>()
+    const tickerMap = new Map<string, StockPick[]>();
     picks.forEach(pick => {
-      const sym = pick.symbol
-      if (!sym) return
-      if (!symbolMap.has(sym)) {
-        symbolMap.set(sym, [])
-      }
-      symbolMap.get(sym)!.push(pick)
-    })
+      if (!tickerMap.has(pick.ticker)) tickerMap.set(pick.ticker, []);
+      tickerMap.get(pick.ticker)!.push(pick);
+    });
     
-    // Find stocks picked by 2+ AIs
-    const hotPicks = Array.from(symbolMap.entries())
-      .filter(([_, picks]) => picks.length >= 2)
-      .map(([symbol, picks]) => ({
-        symbol,
-        picks,
+    return Array.from(tickerMap.entries())
+      .filter(([_, p]) => p.length >= 2)
+      .map(([ticker, picks]) => ({
+        ticker,
+        symbol: ticker,
+        category: picks[0].category,
         consensus: picks.length,
-        avgConfidence: picks.reduce((sum, p) => sum + (p.confidence_score || 0), 0) / picks.length,
         aiNames: picks.map(p => p.ai_name),
+        avgConfidence: picks.reduce((s, p) => s + p.confidence, 0) / picks.length,
+        direction: picks.filter(p => p.direction === 'UP').length > picks.length / 2 ? 'UP' : 'DOWN',
+        picks,
       }))
-      .sort((a, b) => b.consensus - a.consensus)
-    
-    return hotPicks
+      .sort((a, b) => b.consensus - a.consensus);
   } catch (e) {
-    console.error('Exception:', e)
-    return []
+    console.error('getHotPicks error:', e);
+    return [];
   }
 }
 
 // Get AI statistics
-export async function getAIStatistics(): Promise<any[]> {
+export async function getAIStatistics(category?: Category): Promise<any[]> {
   try {
-    const { data: aiModels, error } = await supabase
-      .from('ai_models')
-      .select('*')
-      .eq('is_active', true)
+    const { data: aiModels } = await supabase.from('ai_models').select('*').eq('is_active', true);
+    const picks = await getPicks({ category, limit: 1000 });
     
-    if (error) {
-      console.error('Error fetching AI stats:', error)
-      return []
-    }
-    
-    return (aiModels || []).map(ai => ({
-      aiName: ai.display_name || ai.name,
-      totalPicks: ai.total_picks || 0,
-      avgConfidence: 75,
-      openPicks: 0,
-      closedPicks: (ai.total_wins || 0) + (ai.total_losses || 0),
-      winRate: ai.win_rate || 0,
-      totalWins: ai.total_wins || 0,
-      totalLosses: ai.total_losses || 0,
-      color: ai.color || '#6366f1',
-    }))
+    return (aiModels || []).map(ai => {
+      const aiPicks = picks.filter(p => p.ai_model_id === ai.id);
+      const wins = aiPicks.filter(p => p.status === 'won').length;
+      const losses = aiPicks.filter(p => p.status === 'lost').length;
+      const closed = wins + losses;
+      
+      return {
+        id: ai.id,
+        aiName: ai.display_name || ai.name,
+        color: ai.color,
+        totalPicks: aiPicks.length,
+        openPicks: aiPicks.filter(p => p.status === 'active').length,
+        closedPicks: closed,
+        totalWins: wins,
+        totalLosses: losses,
+        winRate: closed > 0 ? (wins / closed) * 100 : 0,
+        avgConfidence: aiPicks.length > 0 
+          ? aiPicks.reduce((s, p) => s + p.confidence, 0) / aiPicks.length 
+          : 0,
+        totalProfitLoss: aiPicks.reduce((s, p) => s + (p.profit_loss || 0), 0),
+        points: aiPicks.reduce((s, p) => s + (p.points_earned || 0), 0),
+      };
+    }).sort((a, b) => b.points - a.points);
   } catch (e) {
-    console.error('Exception:', e)
-    return []
+    console.error('getAIStatistics error:', e);
+    return [];
   }
+}
+
+// Get leaderboard
+export async function getLeaderboard(category: Category = 'all', weekNumber?: number): Promise<any[]> {
+  const stats = await getAIStatistics(category === 'all' ? undefined : category);
+  return stats.map((s, i) => ({ ...s, rank: i + 1 }));
+}
+
+// Get weekly winners
+export async function getWeeklyWinners(weekNumber?: number): Promise<any[]> {
+  try {
+    const picks = await getPicks({ weekNumber, limit: 500 });
+    const grouped = new Map<string, StockPick[]>();
+    
+    picks.forEach(pick => {
+      const key = `${pick.ai_model_id}-${pick.category}`;
+      if (!grouped.has(key)) grouped.set(key, []);
+      grouped.get(key)!.push(pick);
+    });
+    
+    const results: any[] = [];
+    grouped.forEach((aiPicks, key) => {
+      const wins = aiPicks.filter(p => p.status === 'won').length;
+      const losses = aiPicks.filter(p => p.status === 'lost').length;
+      results.push({
+        ai_name: aiPicks[0].ai_name,
+        category: aiPicks[0].category,
+        total: aiPicks.length,
+        wins,
+        losses,
+        winRate: (wins + losses) > 0 ? (wins / (wins + losses)) * 100 : 0,
+        profit: aiPicks.reduce((s, p) => s + (p.profit_loss || 0), 0),
+      });
+    });
+    
+    return results.sort((a, b) => b.profit - a.profit);
+  } catch (e) {
+    console.error('getWeeklyWinners error:', e);
+    return [];
+  }
+}
+
+// Get performance over time for charts
+export async function getPerformanceTimeline(aiModelId?: string): Promise<any[]> {
+  try {
+    const { data } = await supabase
+      .from('stock_picks')
+      .select('*, ai_models (name, display_name)')
+      .eq('status', 'won')
+      .or('status.eq.lost')
+      .order('closed_at', { ascending: true });
+    
+    // Group by date and AI
+    const timeline: any[] = [];
+    const dailyMap = new Map<string, Map<string, { wins: number; losses: number; profit: number }>>();
+    
+    (data || []).forEach(pick => {
+      const date = pick.closed_at?.split('T')[0] || pick.created_at.split('T')[0];
+      const aiName = pick.ai_models?.display_name || 'Unknown';
+      
+      if (!dailyMap.has(date)) dailyMap.set(date, new Map());
+      if (!dailyMap.get(date)!.has(aiName)) {
+        dailyMap.get(date)!.set(aiName, { wins: 0, losses: 0, profit: 0 });
+      }
+      
+      const stats = dailyMap.get(date)!.get(aiName)!;
+      if (pick.status === 'won') stats.wins++;
+      else stats.losses++;
+      stats.profit += pick.profit_loss || 0;
+    });
+    
+    dailyMap.forEach((aiMap, date) => {
+      aiMap.forEach((stats, aiName) => {
+        timeline.push({ date, aiName, ...stats });
+      });
+    });
+    
+    return timeline;
+  } catch (e) {
+    console.error('getPerformanceTimeline error:', e);
+    return [];
+  }
+}
+
+// Helper to map database row to frontend type
+function mapPick(row: any): StockPick {
+  return {
+    ...row,
+    symbol: row.ticker,
+    confidence_score: row.confidence,
+    ai_name: row.ai_models?.display_name || row.ai_models?.name || 'Unknown',
+    ai_color: row.ai_models?.color || '#6366f1',
+  };
+}
+
+// Category stats
+export async function getCategoryStats(): Promise<Record<Category, { total: number; winners: number; winRate: number }>> {
+  const picks = await getPicks({ limit: 1000 });
+  const stats: Record<string, { total: number; winners: number; winRate: number }> = {
+    regular: { total: 0, winners: 0, winRate: 0 },
+    penny: { total: 0, winners: 0, winRate: 0 },
+    crypto: { total: 0, winners: 0, winRate: 0 },
+  };
+  
+  picks.forEach(p => {
+    if (stats[p.category]) {
+      stats[p.category].total++;
+      if (p.status === 'won') stats[p.category].winners++;
+    }
+  });
+  
+  Object.keys(stats).forEach(cat => {
+    const s = stats[cat];
+    const closed = picks.filter(p => p.category === cat && ['won', 'lost'].includes(p.status)).length;
+    s.winRate = closed > 0 ? (s.winners / closed) * 100 : 0;
+  });
+  
+  return stats as any;
 }
