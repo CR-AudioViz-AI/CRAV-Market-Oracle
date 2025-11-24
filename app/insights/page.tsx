@@ -83,7 +83,7 @@ export default function InsightsPage() {
     return <div className="flex items-center justify-center min-h-[400px]"><div className="spinner"></div></div>
   }
 
-  const uniqueAIs = Array.from(new Set(picks.map(p => p.ai_name)))
+  const uniqueAIs = Array.from(new Set(picks.map(p => p.ai_name).filter(Boolean))) as string[]
 
   return (
     <div className="space-y-8">
@@ -117,7 +117,7 @@ export default function InsightsPage() {
           >
             <option value="all">All AIs</option>
             {uniqueAIs.map(ai => (
-              <option key={ai} value={ai.toLowerCase()}>{ai}</option>
+              <option key={ai} value={ai?.toLowerCase() || ""}>{ai}</option>
             ))}
           </select>
 
