@@ -101,7 +101,7 @@ export default function DashboardPage() {
       let cmp = 0;
       switch (sortBy) {
         case 'date': cmp = new Date(b.created_at).getTime() - new Date(a.created_at).getTime(); break;
-        case 'confidence': cmp = b.confidence - a.confidence; break;
+        case 'confidence': cmp = (b.confidence || 0) - (a.confidence || 0); break;
         case 'profit': cmp = (b.profit_loss || 0) - (a.profit_loss || 0); break;
         case 'ticker': cmp = a.ticker.localeCompare(b.ticker); break;
       }
@@ -121,7 +121,7 @@ export default function DashboardPage() {
     const winRate = closed > 0 ? (won / closed) * 100 : 0;
     const totalProfit = filteredPicks.reduce((s, p) => s + (p.profit_loss || 0), 0);
     const avgConfidence = total > 0 
-      ? filteredPicks.reduce((s, p) => s + p.confidence, 0) / total 
+      ? filteredPicks.reduce((s, p) => s + (p.confidence || 0), 0) / total 
       : 0;
     
     return { total, active, won, lost, winRate, totalProfit, avgConfidence };
@@ -527,7 +527,7 @@ function PickCard({ pick }: { pick: StockPick }) {
             }`}>
               {pick.direction}
             </span>
-            <span className="text-xs text-gray-400">{pick.confidence}% confidence</span>
+            <span className="text-xs text-gray-400">{(pick.confidence || 0)}% confidence</span>
           </div>
           
           <p className="text-sm text-gray-400 line-clamp-2 mb-2">{pick.reasoning}</p>
@@ -548,7 +548,7 @@ function PickCard({ pick }: { pick: StockPick }) {
             {pick.current_price && (
               <div>
                 <span className="text-gray-500">Current:</span>{' '}
-                <span className="text-indigo-400">${pick.current_price.toFixed(2)}</span>
+                <span className="text-indigo-400">${(pick.current_price || 0).toFixed(2)}</span>
               </div>
             )}
           </div>
