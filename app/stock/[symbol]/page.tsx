@@ -110,7 +110,7 @@ export default function StockDetailPage() {
   const avgConfidence = picks.reduce((sum, p) => sum + p.confidence_score, 0) / picks.length
   const avgTargetPrice = picks.reduce((sum, p) => sum + p.target_price, 0) / picks.length
   const consensusBullish = picks.filter(p => p.target_price > p.entry_price).length > picks.length / 2
-  const uniqueAIs = new Set(picks.map(p => p.ai_name)).size
+  const uniqueAIs = new Set(picks.map(p => p.ai_name || 'Unknown')).size
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -258,12 +258,12 @@ export default function StockDetailPage() {
                   <div className="flex items-center gap-3">
                     <div 
                       className="w-12 h-12 rounded-xl flex items-center justify-center font-bold text-lg"
-                      style={{ background: getAIColor(pick.ai_name).primary }}
+                      style={{ background: getAIColor(pick.ai_name || 'Unknown').primary }}
                     >
-                      {pick.ai_name.charAt(0)}
+                      {((pick.ai_name || 'U')).charAt(0)}
                     </div>
                     <div>
-                      <div className="font-bold">{pick.ai_name}</div>
+                      <div className="font-bold">{pick.ai_name || 'Unknown'}</div>
                       <div className="text-xs text-slate-400 flex items-center gap-1">
                         <Calendar className="w-3 h-3" />
                         {formatTimeAgo(pick.created_at)}
