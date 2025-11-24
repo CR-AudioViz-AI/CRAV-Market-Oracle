@@ -4,5 +4,15 @@
     "autoAlias": false
   },
   "buildCommand": "npm run build",
-  "installCommand": "npm install"
+  "installCommand": "npm install",
+  "crons": [
+    {
+      "path": "/api/market-oracle/generate-picks",
+      "schedule": "0 6 * * 1"
+    },
+    {
+      "path": "/api/market-oracle/update-performance",
+      "schedule": "0 16 * * *"
+    }
+  ]
 }
