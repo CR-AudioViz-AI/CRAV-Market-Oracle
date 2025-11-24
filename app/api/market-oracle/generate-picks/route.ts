@@ -142,6 +142,7 @@ async function gen() {
             confidence: p.confidence,
             entry_price: p.entry_price,
             target_price: p.target_price,
+            stop_loss: p.entry_price * 0.95, // 5% stop loss default
             direction: direction,
             reasoning: `[${cat.toUpperCase()}] ${p.reasoning}`,
             week_number: week,
