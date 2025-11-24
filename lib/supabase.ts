@@ -11,10 +11,12 @@ export type StockPick = {
   competition_id: string
   ai_model_id: string
   ticker: string
+  symbol?: string  // Alias for ticker (backward compat)
   pick_date: string
   week_number: number
   direction: 'UP' | 'DOWN' | 'HOLD'
   confidence: number
+  confidence_score?: number  // Alias for confidence (backward compat)
   entry_price: number
   target_price: number
   stop_loss: number
