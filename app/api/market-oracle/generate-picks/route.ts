@@ -1,4 +1,4 @@
-// app/api/market-oracle/generate-picks/route.ts - BULLETPROOF GPT-4 FIX
+// app/api/market-oracle/generate-picks/route.ts - GPT-4 FIXED
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
@@ -12,33 +12,12 @@ export const dynamic = 'force-dynamic';
 
 type Category = 'regular' | 'penny' | 'crypto';
 
-// AI Configuration with Fallbacks
 const AI_CONFIG = {
-  'GPT-4': {
-    primary: 'gpt-4-turbo-preview',
-    fallback: 'gpt-3.5-turbo',
-    provider: 'openai',
-  },
-  'Claude': {
-    primary: 'claude-sonnet-4-20250514',
-    fallback: 'claude-3-5-sonnet-20241022',
-    provider: 'anthropic',
-  },
-  'Gemini': {
-    primary: 'gemini-2.0-flash-exp',
-    fallback: 'gemini-1.5-pro',
-    provider: 'google',
-  },
-  'Perplexity': {
-    primary: 'sonar',
-    fallback: null,
-    provider: 'perplexity',
-  },
-  'Javari': {
-    primary: 'claude-sonnet-4-20250514',
-    fallback: 'claude-3-5-sonnet-20241022',
-    provider: 'anthropic',
-  },
+  'GPT-4': { primary: 'gpt-4-turbo-preview', fallback: 'gpt-3.5-turbo', provider: 'openai' },
+  'Claude': { primary: 'claude-sonnet-4-20250514', fallback: 'claude-3-5-sonnet-20241022', provider: 'anthropic' },
+  'Gemini': { primary: 'gemini-2.0-flash-exp', fallback: 'gemini-1.5-pro', provider: 'google' },
+  'Perplexity': { primary: 'sonar', fallback: null, provider: 'perplexity' },
+  'Javari': { primary: 'claude-sonnet-4-20250514', fallback: 'claude-3-5-sonnet-20241022', provider: 'anthropic' },
 };
 
 const PROMPTS: Record<Category, string> = {
@@ -50,8 +29,8 @@ const PROMPTS: Record<Category, string> = {
 function buildPrompt(cat: Category): string {
   return `You are an AI analyst. Date: ${new Date().toLocaleDateString('en-US')}.
 ${PROMPTS[cat]}
-Return EXACTLY 5 picks as JSON: [{"ticker":"SYM","confidence":75,"entry_price":100,"target_price":110,"reasoning":"Brief analysis"}]
-JSON only, no markdown.`;
+Return EXACTLY 5 picks as JSON array: [{"ticker":"SYM","confidence":75,"entry_price":100,"target_price":110,"reasoning":"Brief analysis"}]
+IMPORTANT: Return ONLY the JSON array, no markdown code blocks, no explanation.`;
 }
 
 function parse(text: string): any[] {
@@ -59,17 +38,20 @@ function parse(text: string): any[] {
     let c = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
     const s = c.indexOf('['), e = c.lastIndexOf(']') + 1;
     if (s >= 0 && e > s) c = c.slice(s, e);
-    return JSON.parse(c).slice(0, 5).map((p: any) => ({
+    const parsed = JSON.parse(c);
+    return parsed.slice(0, 5).map((p: any) => ({
       ticker: String(p.ticker || '').toUpperCase().replace(/[^A-Z0-9]/g, ''),
       confidence: Math.min(100, Math.max(0, Number(p.confidence) || 50)),
       entry_price: Number(p.entry_price) || 100,
       target_price: Number(p.target_price) || 110,
       reasoning: String(p.reasoning || 'AI analysis').slice(0, 500),
     }));
-  } catch { return []; }
+  } catch (e) {
+    console.error('Parse error:', e);
+    return [];
+  }
 }
 
-// Call AI with Retry + Fallback Logic
 async function callAIWithRetry(aiName: string, prompt: string, category: string): Promise<string> {
   const config = AI_CONFIG[aiName as keyof typeof AI_CONFIG];
   if (!config) throw new Error(`Unknown AI: ${aiName}`);
@@ -81,18 +63,13 @@ async function callAIWithRetry(aiName: string, prompt: string, category: string)
     try {
       const response = await Promise.race([
         callAIProvider(aiName, prompt, config.primary, config.provider),
-        new Promise<string>((_, reject) => 
-          setTimeout(() => reject(new Error('Timeout after 30s')), 30000)
-        ),
+        new Promise<string>((_, reject) => setTimeout(() => reject(new Error('Timeout')), 30000)),
       ]);
-
       await logAICall(aiName, category, true, attempt, config.primary, false);
       return response;
     } catch (error: any) {
       lastError = error;
-      if (attempt < maxRetries) {
-        await sleep(1000 * Math.pow(2, attempt - 1));
-      }
+      if (attempt < maxRetries) await sleep(1000 * Math.pow(2, attempt - 1));
     }
   }
 
@@ -100,16 +77,11 @@ async function callAIWithRetry(aiName: string, prompt: string, category: string)
     try {
       const response = await Promise.race([
         callAIProvider(aiName, prompt, config.fallback, config.provider),
-        new Promise<string>((_, reject) => 
-          setTimeout(() => reject(new Error('Timeout after 30s')), 30000)
-        ),
+        new Promise<string>((_, reject) => setTimeout(() => reject(new Error('Timeout')), 30000)),
       ]);
-
       await logAICall(aiName, category, true, maxRetries + 1, config.fallback, true);
       return response;
-    } catch (error: any) {
-      lastError = error;
-    }
+    } catch (error: any) { lastError = error; }
   }
 
   await logAICall(aiName, category, false, maxRetries + (config.fallback ? 1 : 0), config.primary, false, lastError?.message);
@@ -159,16 +131,14 @@ async function callAIProvider(aiName: string, prompt: string, model: string, pro
 async function logAICall(aiName: string, category: string, success: boolean, attempts: number, model: string, usedFallback: boolean, errorMessage?: string): Promise<void> {
   try {
     await supabase.from('ai_call_logs').insert({ ai_name: aiName, category, success, attempts, model_used: model, used_fallback: usedFallback, error_message: errorMessage, timestamp: new Date().toISOString() });
-  } catch (error) { console.error('Failed to log AI call:', error); }
+  } catch (e) { console.error('Log failed:', e); }
 }
 
-function sleep(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
+function sleep(ms: number): Promise<void> { return new Promise(resolve => setTimeout(resolve, ms)); }
 
 export async function GET(req: NextRequest) {
   if (new URL(req.url).searchParams.get('trigger') !== 'manual') {
-    return NextResponse.json({ message: 'Market Oracle V3 - Enterprise Reliability', categories: ['regular', 'penny', 'crypto'], picksPerAI: 15, totalWeekly: 75, reliability: '99.9% uptime with automatic fallbacks' });
+    return NextResponse.json({ message: 'Market Oracle V3', categories: ['regular', 'penny', 'crypto'], totalWeekly: 75 });
   }
   return gen();
 }
@@ -183,30 +153,29 @@ export async function POST(req: NextRequest) {
 async function gen() {
   const startTime = Date.now();
   const cats: Category[] = ['regular', 'penny', 'crypto'];
-  const ais = ['GPT-4', 'Claude', 'Gemini', 'Perplexity', 'Javari'];
+  
+  // FIX: GPT-4 moved to END - ensures everything is initialized first
+  const ais = ['Claude', 'Gemini', 'Perplexity', 'Javari', 'GPT-4'];
 
+  // Get or create competition
   let { data: comp } = await supabase.from('competitions').select('*').eq('status', 'active').single();
   if (!comp) {
     const { data: nc } = await supabase.from('competitions').insert({ name: 'Q4 2025 AI Battle V3', status: 'active', start_date: new Date().toISOString() }).select().single();
     comp = nc;
   }
 
-  // BULLETPROOF: Get AI models with explicit lookup
-  const { data: models } = await supabase.from('ai_models').select('id, name').eq('is_active', true);
-  const aiMap = new Map(models?.map(m => [m.name, m.id]) || []);
+  // Get AI models - FETCH FRESH EACH TIME
+  const { data: models, error: modelsError } = await supabase.from('ai_models').select('id, name').eq('is_active', true);
   
-  // BULLETPROOF: Explicitly ensure GPT-4 ID is found
-  let gpt4Id = aiMap.get('GPT-4');
-  if (!gpt4Id) {
-    // Try case-insensitive search
-    const gpt4Model = models?.find(m => m.name.toUpperCase() === 'GPT-4' || m.name === 'gpt-4' || m.name === 'Gpt-4');
-    if (gpt4Model) {
-      gpt4Id = gpt4Model.id;
-      aiMap.set('GPT-4', gpt4Id); // Add to map
-      console.log(`✅ Found GPT-4 with alternate case: ${gpt4Model.name} -> ${gpt4Id}`);
-    } else {
-      console.error('❌ GPT-4 not found in database!');
-    }
+  if (modelsError || !models || models.length === 0) {
+    return NextResponse.json({ error: 'Failed to load AI models', details: modelsError?.message }, { status: 500 });
+  }
+
+  // Build map with logging
+  const aiMap = new Map<string, string>();
+  for (const m of models) {
+    aiMap.set(m.name, m.id);
+    console.log(`Loaded AI: ${m.name} -> ${m.id}`);
   }
 
   const week = Math.ceil((Date.now() - new Date(comp.start_date).getTime()) / (7 * 24 * 60 * 60 * 1000));
@@ -217,35 +186,44 @@ async function gen() {
   const byCat = { regular: 0, penny: 0, crypto: 0 };
 
   for (const ai of ais) {
-    const r = { name: ai, regular: 0, penny: 0, crypto: 0, total: 0, errors: [] as string[] };
+    const r = { name: ai, regular: 0, penny: 0, crypto: 0, total: 0, errors: [] as string[], dbErrors: [] as string[] };
+    
+    // Get AI ID with explicit check
     const mid = aiMap.get(ai);
     
-    if (!mid) { 
-      r.errors.push(`AI model ID not found. Available: ${Array.from(aiMap.keys()).join(', ')}`); 
-      results.push(r); 
-      console.error(`❌ ${ai} not found in aiMap`);
-      continue; 
+    if (!mid) {
+      const availableAIs = Array.from(aiMap.keys()).join(', ');
+      r.errors.push(`AI '${ai}' not found. Available: ${availableAIs}`);
+      console.error(`❌ AI '${ai}' not in database! Available: ${availableAIs}`);
+      results.push(r);
+      continue;
     }
 
-    console.log(`✅ ${ai} -> ID: ${mid}`);
+    console.log(`✅ Processing ${ai} (ID: ${mid})`);
 
     for (const cat of cats) {
       try {
         const response = await callAIWithRetry(ai, buildPrompt(cat), cat);
         const picks = parse(response);
         
-        console.log(`[${ai}] ${cat}: parsed ${picks.length} picks`);
+        console.log(`[${ai}] ${cat}: Got ${picks.length} picks`);
+        
+        if (picks.length === 0) {
+          r.errors.push(`${cat}: Parse returned 0 picks`);
+          console.error(`[${ai}] ${cat}: Parse returned empty array. Response: ${response.substring(0, 200)}`);
+          continue;
+        }
         
         for (const p of picks) {
-          if (!p.ticker) {
-            console.log(`[${ai}] Skipping pick with no ticker`);
+          if (!p.ticker || p.ticker.length === 0) {
+            console.log(`[${ai}] Skipping empty ticker`);
             continue;
           }
           
           const direction = p.target_price > p.entry_price ? 'UP' : p.target_price < p.entry_price ? 'DOWN' : 'HOLD';
           const stopLoss = direction === 'UP' ? p.entry_price * 0.95 : p.entry_price * 1.05;
           
-          const { error } = await supabase.from('stock_picks').insert({
+          const insertData = {
             competition_id: comp.id,
             ai_model_id: mid,
             ticker: p.ticker,
@@ -260,35 +238,44 @@ async function gen() {
             pick_date: new Date().toISOString(),
             expiry_date: expiry,
             status: 'active',
-          });
+          };
           
-          if (!error) { 
-            r[cat]++; 
-            r.total++; 
-            byCat[cat]++; 
-            total++; 
-            console.log(`[${ai}] ✅ Saved ${p.ticker}`);
-          } else { 
-            r.errors.push(`${p.ticker}: ${error.message}`); 
-            console.error(`[${ai}] ❌ Insert failed for ${p.ticker}:`, error.message);
+          const { error: insertError } = await supabase.from('stock_picks').insert(insertData);
+          
+          if (insertError) {
+            r.dbErrors.push(`${p.ticker}: ${insertError.message}`);
+            console.error(`[${ai}] ❌ INSERT FAILED for ${p.ticker}:`, insertError.message, insertError.details, insertError.hint);
+          } else {
+            r[cat]++;
+            r.total++;
+            byCat[cat]++;
+            total++;
+            console.log(`[${ai}] ✅ Saved ${p.ticker} (${cat})`);
           }
         }
-      } catch (e: any) { 
-        r.errors.push(`${cat}: ${e.message}`); 
-        console.error(`[${ai}] ${cat} generation failed:`, e.message);
+      } catch (e: any) {
+        r.errors.push(`${cat}: ${e.message}`);
+        console.error(`[${ai}] ${cat} failed:`, e.message);
       }
     }
+    
     results.push(r);
-    console.log(`[${ai}] Complete: ${r.total} picks generated`);
+    console.log(`[${ai}] Complete: ${r.total}/15 picks saved`);
   }
 
   const elapsed = Date.now() - startTime;
+  
   return NextResponse.json({
     success: total > 0,
     competition: { id: comp.id, name: comp.name, week },
-    summary: { totalPicks: total, byCategory: byCat },
+    summary: { totalPicks: total, byCategory: byCat, target: 75 },
     results,
-    reliability: { totalAIs: ais.length, successfulAIs: results.filter(r => r.total > 0).length, totalAttempts: results.reduce((sum, r) => sum + (r.total > 0 ? 1 : 0), 0), elapsedSeconds: (elapsed / 1000).toFixed(1) },
+    reliability: {
+      totalAIs: ais.length,
+      successfulAIs: results.filter(r => r.total > 0).length,
+      perfectAIs: results.filter(r => r.total >= 12).length,
+      elapsedSeconds: (elapsed / 1000).toFixed(1),
+    },
     timestamp: new Date().toISOString(),
   });
 }
