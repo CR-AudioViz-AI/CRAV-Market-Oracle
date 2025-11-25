@@ -1,4 +1,4 @@
-// app/api/market-oracle/generate-picks/route.ts - FINAL V3
+// app/api/market-oracle/generate-picks/route.ts - V3 FIXED
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
@@ -14,7 +14,7 @@ type Category = 'regular' | 'penny' | 'crypto';
 
 const PROMPTS: Record<Category, string> = {
   regular: `REGULAR STOCKS ($10+): Pick 5 major company stocks. Examples: AAPL, NVDA, TSLA, GOOGL, AMZN, META, MSFT`,
-  penny: `PENNY STOCKS (Under $5): Pick 5 stocks under $5. Examples: SNDL, MULN, SOFI, HOOD, WISH`,
+  penny: `PENNY STOCKS (Under $5): Pick 5 stocks under $5. Examples: SNDL, MULN, SOFI, HOOD, WISH, AMC, BBBY`,
   crypto: `CRYPTO: Pick 5 cryptocurrencies. Examples: BTC, ETH, SOL, AVAX, MATIC, LINK, XRP, DOGE`
 };
 
@@ -140,6 +140,7 @@ async function gen() {
             competition_id: comp.id,
             ai_model_id: mid,
             ticker: p.ticker,
+            category: cat,  // ✅ FIXED: Added category field!
             confidence: p.confidence,
             entry_price: p.entry_price,
             target_price: p.target_price,
