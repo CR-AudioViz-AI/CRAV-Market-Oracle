@@ -11,6 +11,7 @@ import {
   getPicks, getAIModels, getAIStatistics, getHotPicks, getCategoryStats,
   type StockPick, type AIModel, type Category 
 } from '@/lib/supabase';
+// Added for live price tracking
 
 // Category config
 const CATEGORIES = {
@@ -488,7 +489,7 @@ function PicksTab({ picks, aiModels, selectedAI, setSelectedAI, statusFilter, se
   );
 }
 
-// Pick Card
+// Pick Card - Enhanced with Live Price Tracking
 function PickCard({ pick }: { pick: StockPick }) {
   const statusColors: Record<string, string> = {
     active: 'border-yellow-500/50 bg-yellow-500/5',
@@ -497,13 +498,33 @@ function PickCard({ pick }: { pick: StockPick }) {
     expired: 'border-gray-500/50 bg-gray-500/5',
   };
   
+  const hasCurrentPrice = pick.current_price !== null && pick.current_price !== undefined;
+  const priceChange = hasCurrentPrice ? (pick.current_price! - pick.entry_price) : 0;
+  const priceChangePct = pick.price_change_percent ?? 0;
+  const isPositive = priceChangePct >= 0;
+  
+  const targetDiff = pick.target_price - pick.entry_price;
+  const currentProgress = hasCurrentPrice && targetDiff !== 0
+    ? Math.min(100, Math.max(0, ((pick.current_price! - pick.entry_price) / targetDiff) * 100))
+    : 0;
+  
+  const formatPrice = (price: number | null | undefined) => {
+    if (price === null || price === undefined) return '--';
+    if (price >= 1000) return `$${price.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+    if (price >= 1) return `$${price.toFixed(2)}`;
+    return `$${price.toFixed(4)}`;
+  };
+  
   return (
     <div className={`rounded-xl p-4 border ${statusColors[pick.status]} transition-all hover:scale-[1.01]`}>
       <div className="flex items-start gap-4">
-        {/* Ticker */}
+        {/* Ticker Badge */}
         <div className="flex-shrink-0">
-          <div className="w-14 h-14 bg-gray-800 rounded-xl flex items-center justify-center">
+          <div className="w-16 h-16 bg-gray-800 rounded-xl flex flex-col items-center justify-center relative">
             <span className="font-bold text-lg">{pick.ticker}</span>
+            {hasCurrentPrice && (
+              <span className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full animate-pulse" title="Live price"></span>
+            )}
           </div>
           <div className="text-center mt-1">
             <span className={`text-xs px-2 py-0.5 rounded capitalize ${
@@ -516,59 +537,78 @@ function PickCard({ pick }: { pick: StockPick }) {
           </div>
         </div>
         
-        {/* Details */}
+        {/* Main Content */}
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
+          <div className="flex items-center gap-2 mb-2">
             <span className="font-semibold">{pick.ai_name}</span>
             <span className={`text-xs px-2 py-0.5 rounded ${
               pick.direction === 'UP' ? 'bg-green-500/20 text-green-400' :
               pick.direction === 'DOWN' ? 'bg-red-500/20 text-red-400' :
               'bg-gray-500/20 text-gray-400'
             }`}>
-              {pick.direction}
+              {pick.direction === 'UP' ? '↑' : pick.direction === 'DOWN' ? '↓' : '→'} {pick.direction}
             </span>
-            <span className="text-xs text-gray-400">{(pick.confidence || 0)}% confidence</span>
+            <span className="text-xs text-gray-400">{(pick.confidence || 0)}%</span>
           </div>
           
-          <p className="text-sm text-gray-400 line-clamp-2 mb-2">{pick.reasoning}</p>
-          
-          <div className="flex gap-4 text-xs">
-            <div>
-              <span className="text-gray-500">Entry:</span>{' '}
-              <span className="text-white">${pick.entry_price?.toFixed(2)}</span>
-            </div>
-            <div>
-              <span className="text-gray-500">Target:</span>{' '}
-              <span className="text-green-400">${pick.target_price?.toFixed(2)}</span>
-            </div>
-            <div>
-              <span className="text-gray-500">Stop:</span>{' '}
-              <span className="text-red-400">${pick.stop_loss?.toFixed(2)}</span>
-            </div>
-            {pick.current_price && (
-              <div>
-                <span className="text-gray-500">Current:</span>{' '}
-                <span className="text-indigo-400">${(pick.current_price || 0).toFixed(2)}</span>
+          {/* Price Tracking Section */}
+          <div className="bg-gray-800/50 rounded-lg p-3 mb-2">
+            <div className="flex justify-between items-center mb-2">
+              <div className="text-center">
+                <div className="text-xs text-gray-500 uppercase">Entry</div>
+                <div className="text-sm font-medium text-white">{formatPrice(pick.entry_price)}</div>
               </div>
-            )}
+              
+              <div className="flex-1 mx-3 flex items-center">
+                <div className="flex-1 h-2 bg-gray-700 rounded-full overflow-hidden">
+                  <div 
+                    className={`h-full transition-all duration-500 ${isPositive ? 'bg-green-500' : 'bg-red-500'}`}
+                    style={{ width: `${Math.min(100, Math.abs(currentProgress))}%` }}
+                  />
+                </div>
+                {hasCurrentPrice && (
+                  <div className="ml-2">
+                    <span className={`text-sm font-bold ${isPositive ? 'text-green-400' : 'text-red-400'}`}>
+                      {formatPrice(pick.current_price)}
+                    </span>
+                  </div>
+                )}
+              </div>
+              
+              <div className="text-center">
+                <div className="text-xs text-gray-500 uppercase">Target</div>
+                <div className="text-sm font-medium text-green-400">{formatPrice(pick.target_price)}</div>
+              </div>
+            </div>
+            
+            <div className="text-xs text-gray-500 flex justify-between">
+              <span>Stop: <span className="text-red-400">{formatPrice(pick.stop_loss)}</span></span>
+              {hasCurrentPrice && (
+                <span className={isPositive ? 'text-green-400' : 'text-red-400'}>
+                  {isPositive ? '+' : ''}{formatPrice(priceChange)} ({isPositive ? '+' : ''}{priceChangePct.toFixed(1)}%)
+                </span>
+              )}
+            </div>
           </div>
+          
+          <p className="text-xs text-gray-400 line-clamp-1">{pick.reasoning}</p>
         </div>
         
-        {/* Status & P/L */}
-        <div className="text-right flex-shrink-0">
-          <div className={`text-lg font-bold ${
-            pick.status === 'won' ? 'text-green-400' :
-            pick.status === 'lost' ? 'text-red-400' :
-            'text-yellow-400'
-          }`}>
-            {pick.status === 'active' ? 'ACTIVE' :
-             pick.price_change_percent !== null 
-               ? `${pick.price_change_percent >= 0 ? '+' : ''}${pick.price_change_percent.toFixed(1)}%`
-               : pick.status.toUpperCase()}
-          </div>
-          {pick.points_earned !== null && pick.points_earned !== 0 && (
-            <div className="text-sm text-gray-400">
-              {pick.points_earned > 0 ? '+' : ''}{pick.points_earned} pts
+        {/* P&L Badge */}
+        <div className="flex-shrink-0 text-right">
+          {hasCurrentPrice ? (
+            <div className={`px-3 py-2 rounded-lg ${isPositive ? 'bg-green-500/20' : 'bg-red-500/20'}`}>
+              <div className={`text-xl font-bold ${isPositive ? 'text-green-400' : 'text-red-400'}`}>
+                {isPositive ? '+' : ''}{priceChangePct.toFixed(1)}%
+              </div>
+              <div className={`text-xs ${isPositive ? 'text-green-400/70' : 'text-red-400/70'}`}>
+                {isPositive ? '+' : ''}{formatPrice(priceChange)}
+              </div>
+            </div>
+          ) : (
+            <div className="px-3 py-2 rounded-lg bg-gray-500/20">
+              <div className="text-lg font-bold text-yellow-400">PENDING</div>
+              <div className="text-xs text-gray-400">Awaiting price</div>
             </div>
           )}
         </div>
