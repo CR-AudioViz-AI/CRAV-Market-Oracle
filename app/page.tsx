@@ -560,18 +560,20 @@ function PickCard({ pick }: { pick: StockPick }) {
             pick.status === 'won' ? 'text-green-400' :
             pick.status === 'lost' ? 'text-red-400' :
             pick.current_price && pick.price_change_percent !== null
-              ? (pick.price_change_percent >= 0 ? 'text-green-400' : 'text-red-400')
+              ? (pick.price_change_percent > 0.01 ? 'text-green-400' : pick.price_change_percent < -0.01 ? 'text-red-400' : 'text-gray-400')
               : 'text-yellow-400'
           }`}>
             {pick.current_price && pick.price_change_percent !== null
-              ? `${pick.price_change_percent >= 0 ? '+' : ''}${pick.price_change_percent.toFixed(1)}%`
+              ? (Math.abs(pick.price_change_percent) < 0.01 
+                  ? 'EVEN' 
+                  : `${pick.price_change_percent > 0 ? '+' : ''}${pick.price_change_percent.toFixed(1)}%`)
               : pick.status === 'active' 
                 ? 'PENDING'
                 : pick.status.toUpperCase()}
           </div>
-          {pick.current_price && pick.price_change_percent !== null && (
-            <div className={`text-xs ${pick.price_change_percent >= 0 ? 'text-green-400/70' : 'text-red-400/70'}`}>
-              {pick.price_change_percent >= 0 ? '↑' : '↓'} ${Math.abs(pick.current_price - pick.entry_price).toFixed(2)}
+          {pick.current_price && pick.price_change_percent !== null && Math.abs(pick.price_change_percent) >= 0.01 && (
+            <div className={`text-xs ${pick.price_change_percent > 0 ? 'text-green-400/70' : 'text-red-400/70'}`}>
+              {pick.price_change_percent > 0 ? '↑' : '↓'} ${Math.abs(pick.current_price - pick.entry_price).toFixed(2)}
             </div>
           )}
           {pick.points_earned !== null && pick.points_earned !== 0 && (
