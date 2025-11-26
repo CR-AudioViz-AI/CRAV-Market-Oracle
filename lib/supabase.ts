@@ -139,16 +139,16 @@ export async function getAIModels(): Promise<AIModel[]> {
   }
 }
 
-// Get AI statistics (computed from picks)
-export async function getAIStatistics(): Promise<Record<string, { wins: number; losses: number; total: number; winRate: number; avgProfit: number }>> {
+// Get AI statistics (computed from picks) - accepts optional category
+export async function getAIStatistics(category?: Category): Promise<any[]> {
   try {
-    const picks = await getPicks({ limit: 500 });
-    const stats: Record<string, { wins: number; losses: number; total: number; winRate: number; avgProfit: number; profitSum: number }> = {};
+    const picks = await getPicks({ category: category === 'all' ? undefined : category, limit: 500 });
+    const stats: Record<string, { name: string; wins: number; losses: number; total: number; winRate: number; avgProfit: number; profitSum: number; color: string }> = {};
     
     picks.forEach(pick => {
       const aiName = pick.ai_name || 'Unknown';
       if (!stats[aiName]) {
-        stats[aiName] = { wins: 0, losses: 0, total: 0, winRate: 0, avgProfit: 0, profitSum: 0 };
+        stats[aiName] = { name: aiName, wins: 0, losses: 0, total: 0, winRate: 0, avgProfit: 0, profitSum: 0, color: pick.ai_color || '#6366f1' };
       }
       stats[aiName].total++;
       if (pick.status === 'won') stats[aiName].wins++;
@@ -156,31 +156,33 @@ export async function getAIStatistics(): Promise<Record<string, { wins: number; 
       if (pick.price_change_percent) stats[aiName].profitSum += pick.price_change_percent;
     });
     
-    Object.keys(stats).forEach(ai => {
-      const s = stats[ai];
-      const closed = s.wins + s.losses;
-      s.winRate = closed > 0 ? (s.wins / closed) * 100 : 0;
-      s.avgProfit = s.total > 0 ? s.profitSum / s.total : 0;
-    });
-    
-    return stats;
+    return Object.values(stats).map(s => ({
+      ...s,
+      winRate: (s.wins + s.losses) > 0 ? (s.wins / (s.wins + s.losses)) * 100 : 0,
+      avgProfit: s.total > 0 ? s.profitSum / s.total : 0,
+    }));
   } catch (e) {
     console.error('getAIStatistics error:', e);
-    return {};
+    return [];
   }
 }
 
-// Get hot picks (highest positive change)
-export async function getHotPicks(limit: number = 5): Promise<StockPick[]> {
+// Get hot picks (highest positive change) - accepts optional category
+export async function getHotPicks(category?: Category): Promise<StockPick[]> {
   try {
-    const { data, error } = await supabase
+    let query = supabase
       .from('stock_picks')
       .select(`*, ai_models (name, display_name, color)`)
       .eq('status', 'active')
       .not('current_price', 'is', null)
       .order('price_change_pct', { ascending: false })
-      .limit(limit);
+      .limit(5);
     
+    if (category && category !== 'all') {
+      query = query.eq('category', category);
+    }
+    
+    const { data, error } = await query;
     if (error) throw error;
     return (data || []).map(mapPick);
   } catch (e) {
