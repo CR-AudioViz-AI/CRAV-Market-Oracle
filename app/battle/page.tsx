@@ -9,6 +9,7 @@ import {
   BarChart3, Percent, DollarSign, HelpCircle
 } from 'lucide-react';
 import { getAIStatistics, getPicks, getAIModels, type StockPick, type AIModel } from '@/lib/supabase';
+import { JavariHelpButton } from '@/components/JavariWidget';
 
 // Medals for top 3
 const MEDALS = ['🥇', '🥈', '🥉'];
@@ -221,6 +222,7 @@ export default function AIBattlePage() {
             <span className="bg-gradient-to-r from-red-400 via-orange-400 to-yellow-400 bg-clip-text text-transparent">
               AI Battle Royale
             </span>
+            <JavariHelpButton topic="AI battle competition explained" />
             <Trophy className="w-10 h-10 text-yellow-400" />
           </h1>
           <p className="text-lg text-gray-400 max-w-2xl mx-auto">
