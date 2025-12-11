@@ -9,6 +9,7 @@ import {
   Download, HelpCircle, Brain, Wallet
 } from 'lucide-react';
 import { getPicks, getAIModels, type StockPick, type AIModel } from '@/lib/supabase';
+import { JavariHelpButton } from '@/components/JavariWidget';
 
 // Local storage key for tracked positions
 const PORTFOLIO_STORAGE_KEY = 'market-oracle-portfolio';
@@ -462,6 +463,7 @@ export default function PortfolioPage() {
             <span className="bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
               Portfolio Tracker
             </span>
+            <JavariHelpButton topic="portfolio tracker how to use" />
           </h1>
           <p className="text-gray-400 max-w-2xl mx-auto">
             Track AI picks you're following. Add picks from the battle to see your hypothetical gains in real-time.
