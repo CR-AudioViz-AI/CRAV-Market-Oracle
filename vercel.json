@@ -1,16 +1,49 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
+  "buildCommand": "next build",
+  "devCommand": "next dev",
+  "installCommand": "npm install",
+  "github": {
+    "autoAlias": false
+  },
   "crons": [
     {
-      "path": "/api/market-oracle/update-prices",
-      "schedule": "*/15 9-16 * * 1-5"
+      "path": "/api/cron/daily-battle",
+      "schedule": "30 14 * * 1-5"
     },
     {
-      "path": "/api/market-oracle/update-prices", 
-      "schedule": "0 */4 * * 0,6"
+      "path": "/api/cron/update-results",
+      "schedule": "15 21 * * 1-5"
     },
     {
-      "path": "/api/market-oracle/generate-picks",
-      "schedule": "0 8 * * 0"
+      "path": "/api/cron/update-results",
+      "schedule": "0 10 * * 1-5"
+    }
+  ],
+  "functions": {
+    "app/api/cron/**/*.ts": {
+      "maxDuration": 300
+    },
+    "app/api/market-oracle/**/*.ts": {
+      "maxDuration": 300
+    },
+    "app/api/challenge/**/*.ts": {
+      "maxDuration": 60
+    }
+  },
+  "env": {
+    "NEXT_PUBLIC_APP_NAME": "Market Oracle",
+    "NEXT_PUBLIC_APP_URL": "https://marketoracle.craudiovizai.com"
+  },
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        { "key": "Access-Control-Allow-Origin", "value": "*" },
+        { "key": "Access-Control-Allow-Methods", "value": "GET, POST, PUT, DELETE, OPTIONS" },
+        { "key": "Access-Control-Allow-Headers", "value": "Content-Type, Authorization" }
+      ]
     }
   ]
 }
