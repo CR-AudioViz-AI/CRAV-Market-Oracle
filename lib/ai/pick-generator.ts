@@ -1,6 +1,6 @@
 // lib/ai/pick-generator.ts
 // Market Oracle Ultimate - Real AI Pick Generator
-// Created: December 13, 2025
+// Updated: December 14, 2025
 // Purpose: Generate stock picks using REAL AI API calls with full reasoning
 
 import { createClient } from '@supabase/supabase-js';
@@ -8,9 +8,7 @@ import type {
   AIModelName, 
   AIPick, 
   PickDirection,
-  FactorAssessment,
-  MarketFactor,
-  MARKET_FACTORS
+  FactorAssessment
 } from '../types/learning';
 import { getLatestCalibration } from '../learning/calibration-engine';
 import { buildJavariConsensus } from '../learning/javari-consensus';
@@ -25,13 +23,14 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 // ============================================================================
-// AI API ENDPOINTS & CONFIGS
+// AI API ENDPOINTS & CONFIGS - UPDATED December 14, 2025
 // ============================================================================
 
 interface AIConfig {
   model: string;
   maxTokens: number;
   temperature: number;
+  enabled: boolean;
 }
 
 const AI_CONFIGS: Record<Exclude<AIModelName, 'javari'>, AIConfig> = {
@@ -39,21 +38,25 @@ const AI_CONFIGS: Record<Exclude<AIModelName, 'javari'>, AIConfig> = {
     model: 'gpt-4-turbo-preview',
     maxTokens: 2000,
     temperature: 0.3,
+    enabled: true, // WORKING
   },
   claude: {
     model: 'claude-3-sonnet-20240229',
     maxTokens: 2000,
     temperature: 0.3,
+    enabled: false, // DISABLED - needs billing credits
   },
   gemini: {
-    model: 'gemini-pro',
+    model: 'gemini-1.5-flash',
     maxTokens: 2000,
     temperature: 0.3,
+    enabled: false, // DISABLED - API key 403 error
   },
   perplexity: {
-    model: 'llama-3.1-sonar-large-128k-online',
+    model: 'sonar', // UPDATED from llama-3.1-sonar-large-128k-online
     maxTokens: 2000,
     temperature: 0.3,
+    enabled: true, // WORKING
   },
 };
 
@@ -91,6 +94,7 @@ async function getMarketData(symbol: string): Promise<MarketData | null> {
     const quote = quoteData['Global Quote'];
 
     if (!quote || !quote['05. price']) {
+      console.log(`No quote data for ${symbol}`);
       return null;
     }
 
@@ -115,7 +119,7 @@ async function getMarketData(symbol: string): Promise<MarketData | null> {
       low52Week: parseFloat(overview['52WeekLow'] || quote['04. low']),
       sma50: overview['50DayMovingAverage'] ? parseFloat(overview['50DayMovingAverage']) : null,
       sma200: overview['200DayMovingAverage'] ? parseFloat(overview['200DayMovingAverage']) : null,
-      rsi: null, // Would need to calculate from price history
+      rsi: null,
     };
   } catch (error) {
     console.error(`Error fetching market data for ${symbol}:`, error);
@@ -196,7 +200,7 @@ IMPORTANT:
 - Target should reflect your timeframe (1W: 2-5%, 2W: 5-10%, 1M: 10-20%)
 - If you don't have a strong view, use "HOLD" with lower confidence
 
-Respond ONLY with the JSON object, no additional text.`;
+Respond ONLY with the JSON object, no additional text or markdown.`;
 
   return prompt;
 }
@@ -205,415 +209,366 @@ Respond ONLY with the JSON object, no additional text.`;
 // CALL GPT-4
 // ============================================================================
 
-async function callGPT4(prompt: string): Promise<string> {
+async function callGPT4(prompt: string): Promise<string | null> {
   const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) throw new Error('OPENAI_API_KEY not set');
-
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: AI_CONFIGS.gpt4.model,
-      messages: [
-        { role: 'system', content: 'You are a professional stock analyst. Always respond with valid JSON.' },
-        { role: 'user', content: prompt },
-      ],
-      max_tokens: AI_CONFIGS.gpt4.maxTokens,
-      temperature: AI_CONFIGS.gpt4.temperature,
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`GPT-4 API error: ${response.status}`);
+  if (!apiKey) {
+    console.error('OPENAI_API_KEY not set');
+    return null;
   }
 
-  const data = await response.json();
-  return data.choices[0].message.content;
-}
-
-// ============================================================================
-// CALL CLAUDE
-// ============================================================================
-
-async function callClaude(prompt: string): Promise<string> {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) throw new Error('ANTHROPIC_API_KEY not set');
-
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({
-      model: AI_CONFIGS.claude.model,
-      max_tokens: AI_CONFIGS.claude.maxTokens,
-      messages: [
-        { role: 'user', content: prompt },
-      ],
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`Claude API error: ${response.status}`);
-  }
-
-  const data = await response.json();
-  return data.content[0].text;
-}
-
-// ============================================================================
-// CALL GEMINI
-// ============================================================================
-
-async function callGemini(prompt: string): Promise<string> {
-  const apiKey = process.env.GOOGLE_GEMINI_API_KEY;
-  if (!apiKey) throw new Error('GOOGLE_GEMINI_API_KEY not set');
-
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${AI_CONFIGS.gemini.model}:generateContent?key=${apiKey}`,
-    {
+  try {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        contents: [
-          { parts: [{ text: prompt }] },
+        model: AI_CONFIGS.gpt4.model,
+        messages: [
+          { role: 'system', content: 'You are a professional stock analyst. Always respond with valid JSON only, no markdown formatting.' },
+          { role: 'user', content: prompt },
         ],
-        generationConfig: {
-          temperature: AI_CONFIGS.gemini.temperature,
-          maxOutputTokens: AI_CONFIGS.gemini.maxTokens,
-        },
+        max_tokens: AI_CONFIGS.gpt4.maxTokens,
+        temperature: AI_CONFIGS.gpt4.temperature,
       }),
+    });
+
+    if (!response.ok) {
+      console.error(`GPT-4 API error: ${response.status}`);
+      return null;
     }
-  );
 
-  if (!response.ok) {
-    throw new Error(`Gemini API error: ${response.status}`);
+    const data = await response.json();
+    return data.choices[0].message.content;
+  } catch (error) {
+    console.error('GPT-4 call failed:', error);
+    return null;
   }
-
-  const data = await response.json();
-  return data.candidates[0].content.parts[0].text;
 }
 
 // ============================================================================
-// CALL PERPLEXITY
+// CALL CLAUDE - DISABLED (needs billing)
 // ============================================================================
 
-async function callPerplexity(prompt: string): Promise<string> {
-  const apiKey = process.env.PERPLEXITY_API_KEY;
-  if (!apiKey) throw new Error('PERPLEXITY_API_KEY not set');
-
-  const response = await fetch('https://api.perplexity.ai/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: AI_CONFIGS.perplexity.model,
-      messages: [
-        { role: 'system', content: 'You are a professional stock analyst with real-time market access. Always respond with valid JSON.' },
-        { role: 'user', content: prompt },
-      ],
-      max_tokens: AI_CONFIGS.perplexity.maxTokens,
-      temperature: AI_CONFIGS.perplexity.temperature,
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`Perplexity API error: ${response.status}`);
+async function callClaude(prompt: string): Promise<string | null> {
+  if (!AI_CONFIGS.claude.enabled) {
+    console.log('Claude API disabled - needs billing credits');
+    return null;
   }
+  
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return null;
 
-  const data = await response.json();
-  return data.choices[0].message.content;
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: AI_CONFIGS.claude.model,
+        max_tokens: AI_CONFIGS.claude.maxTokens,
+        messages: [
+          { role: 'user', content: prompt },
+        ],
+      }),
+    });
+
+    if (!response.ok) {
+      console.error(`Claude API error: ${response.status}`);
+      return null;
+    }
+
+    const data = await response.json();
+    return data.content[0].text;
+  } catch (error) {
+    console.error('Claude call failed:', error);
+    return null;
+  }
+}
+
+// ============================================================================
+// CALL GEMINI - DISABLED (API key issue)
+// ============================================================================
+
+async function callGemini(prompt: string): Promise<string | null> {
+  if (!AI_CONFIGS.gemini.enabled) {
+    console.log('Gemini API disabled - 403 error');
+    return null;
+  }
+  
+  const apiKey = process.env.GOOGLE_GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY;
+  if (!apiKey) return null;
+
+  try {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${AI_CONFIGS.gemini.model}:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      console.error(`Gemini API error: ${response.status}`);
+      return null;
+    }
+
+    const data = await response.json();
+    return data.candidates?.[0]?.content?.parts?.[0]?.text || null;
+  } catch (error) {
+    console.error('Gemini call failed:', error);
+    return null;
+  }
+}
+
+// ============================================================================
+// CALL PERPLEXITY - WORKING
+// ============================================================================
+
+async function callPerplexity(prompt: string): Promise<string | null> {
+  if (!AI_CONFIGS.perplexity.enabled) {
+    console.log('Perplexity API disabled');
+    return null;
+  }
+  
+  const apiKey = process.env.PERPLEXITY_API_KEY;
+  if (!apiKey) return null;
+
+  try {
+    const response = await fetch('https://api.perplexity.ai/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: AI_CONFIGS.perplexity.model, // "sonar"
+        messages: [
+          { role: 'system', content: 'You are a professional stock analyst. Always respond with valid JSON only.' },
+          { role: 'user', content: prompt },
+        ],
+        max_tokens: AI_CONFIGS.perplexity.maxTokens,
+        temperature: AI_CONFIGS.perplexity.temperature,
+      }),
+    });
+
+    if (!response.ok) {
+      console.error(`Perplexity API error: ${response.status}`);
+      return null;
+    }
+
+    const data = await response.json();
+    return data.choices[0].message.content;
+  } catch (error) {
+    console.error('Perplexity call failed:', error);
+    return null;
+  }
 }
 
 // ============================================================================
 // PARSE AI RESPONSE
 // ============================================================================
 
-interface AIResponse {
-  direction: PickDirection;
-  confidence: number;
-  thesis: string;
-  full_reasoning: string;
-  target_price: number;
-  stop_loss: number;
-  timeframe: string;
-  factor_assessments: FactorAssessment[];
-  key_bullish_factors: string[];
-  key_bearish_factors: string[];
-  risks: string[];
-  catalysts: string[];
-}
-
-function parseAIResponse(response: string): AIResponse | null {
+function parseAIResponse(response: string, aiModel: AIModelName, marketData: MarketData): AIPick | null {
   try {
     // Clean up response - remove markdown code blocks if present
     let cleaned = response.trim();
     if (cleaned.startsWith('```json')) {
-      cleaned = cleaned.slice(7);
+      cleaned = cleaned.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+    } else if (cleaned.startsWith('```')) {
+      cleaned = cleaned.replace(/^```\s*/, '').replace(/\s*```$/, '');
     }
-    if (cleaned.startsWith('```')) {
-      cleaned = cleaned.slice(3);
-    }
-    if (cleaned.endsWith('```')) {
-      cleaned = cleaned.slice(0, -3);
-    }
-    cleaned = cleaned.trim();
 
     const parsed = JSON.parse(cleaned);
-    
-    // Validate required fields
-    if (!parsed.direction || !['UP', 'DOWN', 'HOLD'].includes(parsed.direction)) {
-      console.error('Invalid direction:', parsed.direction);
-      return null;
-    }
-    
-    if (typeof parsed.confidence !== 'number' || parsed.confidence < 0 || parsed.confidence > 100) {
-      parsed.confidence = 50; // Default
-    }
 
-    return {
-      direction: parsed.direction,
+    const pick: AIPick = {
+      id: crypto.randomUUID(),
+      ai_model: aiModel,
+      symbol: marketData.symbol,
+      company_name: marketData.companyName,
+      sector: marketData.sector,
+      direction: parsed.direction as PickDirection,
       confidence: parsed.confidence,
-      thesis: parsed.thesis || 'No thesis provided',
-      full_reasoning: parsed.full_reasoning || parsed.thesis || 'No reasoning provided',
-      target_price: parsed.target_price || 0,
-      stop_loss: parsed.stop_loss || 0,
       timeframe: parsed.timeframe || '1W',
-      factor_assessments: Array.isArray(parsed.factor_assessments) ? parsed.factor_assessments : [],
-      key_bullish_factors: Array.isArray(parsed.key_bullish_factors) ? parsed.key_bullish_factors : [],
-      key_bearish_factors: Array.isArray(parsed.key_bearish_factors) ? parsed.key_bearish_factors : [],
-      risks: Array.isArray(parsed.risks) ? parsed.risks : [],
-      catalysts: Array.isArray(parsed.catalysts) ? parsed.catalysts : [],
+      entry_price: marketData.currentPrice,
+      target_price: parsed.target_price,
+      stop_loss: parsed.stop_loss,
+      thesis: parsed.thesis,
+      full_reasoning: parsed.full_reasoning,
+      factor_assessments: parsed.factor_assessments || [],
+      key_bullish_factors: parsed.key_bullish_factors || [],
+      key_bearish_factors: parsed.key_bearish_factors || [],
+      risks: parsed.risks || [],
+      catalysts: parsed.catalysts || [],
+      created_at: new Date().toISOString(),
+      expires_at: getExpirationDate(parsed.timeframe || '1W'),
+      status: 'PENDING',
     };
+
+    return pick;
   } catch (error) {
-    console.error('Error parsing AI response:', error);
+    console.error(`Failed to parse ${aiModel} response:`, error);
     console.error('Raw response:', response.substring(0, 500));
     return null;
   }
 }
 
+function getExpirationDate(timeframe: string): string {
+  const now = new Date();
+  switch (timeframe) {
+    case '1W':
+      now.setDate(now.getDate() + 7);
+      break;
+    case '2W':
+      now.setDate(now.getDate() + 14);
+      break;
+    case '1M':
+      now.setDate(now.getDate() + 30);
+      break;
+    default:
+      now.setDate(now.getDate() + 7);
+  }
+  return now.toISOString();
+}
+
 // ============================================================================
-// GENERATE PICK FROM AI
+// GENERATE PICK FROM SPECIFIC AI
 // ============================================================================
 
 export async function generatePickFromAI(
   aiModel: Exclude<AIModelName, 'javari'>,
   symbol: string
 ): Promise<AIPick | null> {
-  try {
-    console.log(`🤖 Generating ${aiModel} pick for ${symbol}...`);
-
-    // Get market data
-    const marketData = await getMarketData(symbol);
-    if (!marketData) {
-      console.error(`Failed to get market data for ${symbol}`);
-      return null;
-    }
-
-    // Get calibration data
-    const calibration = await getLatestCalibration(aiModel);
-
-    // Get recent news (simplified - you could use NewsAPI here)
-    const recentNews: string[] = [];
-
-    // Build prompt
-    const prompt = buildAnalysisPrompt(
-      marketData,
-      calibration ? {
-        bestSectors: calibration.bestSectors,
-        worstSectors: calibration.worstSectors,
-        adjustments: calibration.adjustments,
-      } : null,
-      recentNews
-    );
-
-    // Call the appropriate AI
-    let response: string;
-    switch (aiModel) {
-      case 'gpt4':
-        response = await callGPT4(prompt);
-        break;
-      case 'claude':
-        response = await callClaude(prompt);
-        break;
-      case 'gemini':
-        response = await callGemini(prompt);
-        break;
-      case 'perplexity':
-        response = await callPerplexity(prompt);
-        break;
-      default:
-        throw new Error(`Unknown AI model: ${aiModel}`);
-    }
-
-    // Parse response
-    const parsed = parseAIResponse(response);
-    if (!parsed) {
-      console.error(`Failed to parse ${aiModel} response`);
-      return null;
-    }
-
-    // Apply calibration adjustments
-    let adjustedConfidence = parsed.confidence;
-    if (calibration && calibration.overconfidenceScore > 10) {
-      adjustedConfidence = Math.max(30, adjustedConfidence - 10);
-    }
-
-    // Create pick object
-    const pick: AIPick = {
-      id: `pick_${aiModel}_${symbol}_${Date.now()}`,
-      aiModel,
-      symbol: marketData.symbol,
-      companyName: marketData.companyName,
-      sector: marketData.sector,
-      direction: parsed.direction,
-      confidence: adjustedConfidence,
-      timeframe: parsed.timeframe as AIPick['timeframe'],
-      entryPrice: marketData.currentPrice,
-      targetPrice: parsed.target_price || (parsed.direction === 'UP' 
-        ? marketData.currentPrice * 1.05 
-        : marketData.currentPrice * 0.95),
-      stopLoss: parsed.stop_loss || (parsed.direction === 'UP'
-        ? marketData.currentPrice * 0.93
-        : marketData.currentPrice * 1.07),
-      thesis: parsed.thesis,
-      fullReasoning: parsed.full_reasoning,
-      factorAssessments: parsed.factor_assessments,
-      keyBullishFactors: parsed.key_bullish_factors,
-      keyBearishFactors: parsed.key_bearish_factors,
-      risks: parsed.risks,
-      catalysts: parsed.catalysts,
-      createdAt: new Date(),
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 1 week default
-      status: 'PENDING',
-    };
-
-    // Store in database
-    const { error } = await supabase
-      .from('market_oracle_picks')
-      .insert({
-        id: pick.id,
-        ai_model: pick.aiModel,
-        symbol: pick.symbol,
-        company_name: pick.companyName,
-        sector: pick.sector,
-        direction: pick.direction,
-        confidence: pick.confidence,
-        timeframe: pick.timeframe,
-        entry_price: pick.entryPrice,
-        target_price: pick.targetPrice,
-        stop_loss: pick.stopLoss,
-        thesis: pick.thesis,
-        full_reasoning: pick.fullReasoning,
-        factor_assessments: pick.factorAssessments,
-        key_bullish_factors: pick.keyBullishFactors,
-        key_bearish_factors: pick.keyBearishFactors,
-        risks: pick.risks,
-        catalysts: pick.catalysts,
-        created_at: pick.createdAt.toISOString(),
-        expires_at: pick.expiresAt.toISOString(),
-        status: pick.status,
-      });
-
-    if (error) {
-      console.error(`Error storing ${aiModel} pick:`, error);
-    } else {
-      console.log(`✅ ${aiModel} pick generated: ${symbol} ${parsed.direction} (${adjustedConfidence}%)`);
-    }
-
-    return pick;
-  } catch (error) {
-    console.error(`Error generating ${aiModel} pick for ${symbol}:`, error);
+  console.log(`Generating ${aiModel} pick for ${symbol}...`);
+  
+  // Check if model is enabled
+  if (!AI_CONFIGS[aiModel].enabled) {
+    console.log(`${aiModel} is disabled`);
     return null;
   }
+
+  // Get market data
+  const marketData = await getMarketData(symbol);
+  if (!marketData) {
+    console.error(`Could not get market data for ${symbol}`);
+    return null;
+  }
+
+  // Get calibration data if available
+  const calibration = await getLatestCalibration(aiModel);
+
+  // Build prompt
+  const prompt = buildAnalysisPrompt(marketData, calibration, []);
+
+  // Call appropriate AI
+  let response: string | null = null;
+  switch (aiModel) {
+    case 'gpt4':
+      response = await callGPT4(prompt);
+      break;
+    case 'claude':
+      response = await callClaude(prompt);
+      break;
+    case 'gemini':
+      response = await callGemini(prompt);
+      break;
+    case 'perplexity':
+      response = await callPerplexity(prompt);
+      break;
+  }
+
+  if (!response) {
+    console.error(`No response from ${aiModel}`);
+    return null;
+  }
+
+  // Parse response
+  const pick = parseAIResponse(response, aiModel, marketData);
+  if (!pick) {
+    console.error(`Failed to parse ${aiModel} response`);
+    return null;
+  }
+
+  // Save to database
+  const { error } = await supabase
+    .from('market_oracle_picks')
+    .insert(pick);
+
+  if (error) {
+    console.error(`Failed to save ${aiModel} pick:`, error);
+  } else {
+    console.log(`✅ ${aiModel} pick saved for ${symbol}`);
+  }
+
+  return pick;
 }
 
 // ============================================================================
-// GENERATE ALL AI PICKS FOR SYMBOL
+// GENERATE ALL AI PICKS + JAVARI CONSENSUS
 // ============================================================================
 
-export async function generateAllAIPicks(
-  symbol: string
-): Promise<{
+export async function generateAllAIPicks(symbol: string): Promise<{
   picks: AIPick[];
-  consensus: ReturnType<typeof buildJavariConsensus> extends Promise<infer T> ? T : never;
+  consensus: ReturnType<typeof buildJavariConsensus> | null;
 }> {
-  const aiModels: Exclude<AIModelName, 'javari'>[] = ['gpt4', 'claude', 'gemini', 'perplexity'];
+  console.log(`\n========================================`);
+  console.log(`Generating ALL AI picks for ${symbol}`);
+  console.log(`========================================\n`);
+
+  const aiModels: Exclude<AIModelName, 'javari'>[] = ['gpt4', 'perplexity']; // Only enabled models
   const picks: AIPick[] = [];
 
-  console.log(`\n${'='.repeat(60)}`);
-  console.log(`🎯 GENERATING AI PICKS FOR ${symbol}`);
-  console.log(`${'='.repeat(60)}\n`);
-
   for (const model of aiModels) {
-    try {
-      const pick = await generatePickFromAI(model, symbol);
-      if (pick) {
-        picks.push(pick);
+    if (AI_CONFIGS[model].enabled) {
+      try {
+        const pick = await generatePickFromAI(model, symbol);
+        if (pick) {
+          picks.push(pick);
+        }
+      } catch (error) {
+        console.error(`Error generating ${model} pick:`, error);
       }
-      // Small delay between API calls
-      await new Promise(r => setTimeout(r, 1000));
-    } catch (error) {
-      console.error(`Failed to generate ${model} pick:`, error);
     }
   }
 
-  // Build Javari consensus
-  const aiPicks = picks.map(p => ({
-    aiModel: p.aiModel,
-    direction: p.direction,
-    confidence: p.confidence,
-    pickId: p.id,
-  }));
+  // Generate Javari consensus if we have picks
+  let consensus = null;
+  if (picks.length >= 2) {
+    consensus = buildJavariConsensus(picks);
+    
+    // Save consensus to database
+    if (consensus) {
+      const { error } = await supabase
+        .from('market_oracle_consensus_picks')
+        .insert({
+          symbol,
+          direction: consensus.direction,
+          ai_combination: consensus.agreeing_models,
+          ai_combination_key: consensus.agreeing_models.sort().join('+'),
+          consensus_strength: consensus.consensus_strength,
+          weighted_confidence: consensus.weighted_confidence,
+          javari_confidence: consensus.javari_confidence,
+          javari_reasoning: consensus.reasoning,
+          status: 'PENDING',
+          created_at: new Date().toISOString(),
+        });
 
-  const consensus = await buildJavariConsensus(symbol, aiPicks);
+      if (error) {
+        console.error('Failed to save consensus:', error);
+      }
+    }
+  }
 
-  console.log(`\n✅ Generated ${picks.length} picks for ${symbol}`);
-  console.log(`📊 Javari Consensus: ${consensus.javariRecommendation} (${consensus.javariConfidence}%)`);
-  console.log(`💬 "${consensus.javariReasoning}"\n`);
+  console.log(`\n========================================`);
+  console.log(`Generated ${picks.length} picks for ${symbol}`);
+  console.log(`========================================\n`);
 
   return { picks, consensus };
 }
-
-// ============================================================================
-// DAILY BATTLE - Generate picks for multiple symbols
-// ============================================================================
-
-export async function runDailyBattle(
-  symbols: string[]
-): Promise<void> {
-  console.log(`\n${'='.repeat(60)}`);
-  console.log(`🏆 DAILY AI BATTLE - ${new Date().toISOString()}`);
-  console.log(`📈 Analyzing ${symbols.length} symbols`);
-  console.log(`${'='.repeat(60)}\n`);
-
-  for (const symbol of symbols) {
-    try {
-      await generateAllAIPicks(symbol);
-      // Longer delay between symbols to respect API limits
-      await new Promise(r => setTimeout(r, 5000));
-    } catch (error) {
-      console.error(`Failed to generate picks for ${symbol}:`, error);
-    }
-  }
-
-  console.log(`\n${'='.repeat(60)}`);
-  console.log(`✅ DAILY BATTLE COMPLETE`);
-  console.log(`${'='.repeat(60)}\n`);
-}
-
-export default {
-  generatePickFromAI,
-  generateAllAIPicks,
-  runDailyBattle,
-  getMarketData,
-};
