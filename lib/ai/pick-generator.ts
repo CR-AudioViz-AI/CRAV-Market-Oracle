@@ -1,3 +1,8 @@
+// lib/ai/pick-generator.ts
+// Market Oracle Ultimate - AI Pick Generation System
+// Created: December 13, 2025
+// Updated: December 14, 2025 - Fixed env vars, database writes
+
 import { createClient } from '@supabase/supabase-js';
 import type { AIModelName, AIPick, PickDirection, ConsensusAssessment } from '../types/learning';
 import { getLatestCalibration } from '../learning/calibration-engine';
@@ -152,7 +157,11 @@ export async function generatePickFromAI(ai: Exclude<AIModelName, 'javari'>, sym
   if (!res) return null;
   const pick = parsePick(res, ai, m);
   if (!pick) return null;
-  await supabase.from('market_oracle_picks').insert(toDb(pick));
+  
+  // Save to database with error logging
+  const { error } = await supabase.from('market_oracle_picks').insert(toDb(pick));
+  if (error) console.error('DB insert error:', error);
+  
   return pick;
 }
 
@@ -169,12 +178,11 @@ export async function generateAllAIPicks(symbol: string): Promise<{ picks: AIPic
     const fp = picks.map(p => ({ aiModel: p.aiModel, direction: p.direction, confidence: p.confidence, pickId: p.id }));
     consensus = await buildJavariConsensus(symbol, fp);
     if (consensus) {
-      // Get agreeing models from aiPicks
       const agreeingModels = consensus.aiPicks
         .filter(p => p.direction === consensus!.consensusDirection)
         .map(p => p.aiModel);
       
-      await supabase.from('market_oracle_consensus_picks').insert({
+      const { error } = await supabase.from('market_oracle_consensus_picks').insert({
         symbol,
         direction: consensus.consensusDirection,
         ai_combination: agreeingModels,
@@ -186,6 +194,7 @@ export async function generateAllAIPicks(symbol: string): Promise<{ picks: AIPic
         status: 'PENDING',
         created_at: new Date().toISOString(),
       });
+      if (error) console.error('Consensus DB insert error:', error);
     }
   }
   return { picks, consensus };
