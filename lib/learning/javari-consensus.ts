@@ -1,6 +1,7 @@
 // lib/learning/javari-consensus.ts
 // Market Oracle Ultimate - Javari AI Consensus System
 // Created: December 13, 2025
+// Updated: December 13, 2025 - Fixed PickOutcome type casting
 // Purpose: Meta-learning system that learns which AI combinations to trust
 
 import { createClient } from '@supabase/supabase-js';
@@ -9,7 +10,8 @@ import type {
   PickDirection, 
   ConsensusAssessment,
   JavariConsensusStats,
-  AIPick 
+  AIPick,
+  PickOutcome 
 } from '../types/learning';
 import { getLatestCalibration } from './calibration-engine';
 
@@ -209,7 +211,7 @@ async function findSimilarPastSetups(
   symbol: string,
   aiCombination: AIModelName[],
   direction: PickDirection
-): Promise<{ setupId: string; outcome: string; similarity: number }[]> {
+): Promise<{ setupId: string; outcome: PickOutcome; similarity: number }[]> {
   try {
     // Get past consensus picks with same symbol or sector
     const { data: pastPicks, error } = await supabase
@@ -224,7 +226,7 @@ async function findSimilarPastSetups(
       return [];
     }
 
-    const similarSetups: { setupId: string; outcome: string; similarity: number }[] = [];
+    const similarSetups: { setupId: string; outcome: PickOutcome; similarity: number }[] = [];
 
     for (const pick of pastPicks) {
       // Calculate similarity score
@@ -247,7 +249,7 @@ async function findSimilarPastSetups(
       if (similarity > 0.3) {
         similarSetups.push({
           setupId: pick.id,
-          outcome: pick.status,
+          outcome: pick.status as PickOutcome, // Cast to PickOutcome type
           similarity,
         });
       }
