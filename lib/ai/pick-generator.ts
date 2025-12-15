@@ -22,7 +22,7 @@ const genAI = process.env.GEMINI_API_KEY
 const AI_CONFIGS: Record<string, { model: string; enabled: boolean; name: string }> = {
   gpt4: { model: 'gpt-4-turbo-preview', enabled: true, name: 'GPT-4' },
   claude: { model: 'claude-3-sonnet-20240229', enabled: true, name: 'Claude' },
-  gemini: { model: 'gemini-1.5-flash', enabled: true, name: 'Gemini' },
+  gemini: { model: 'gemini-pro-latest', enabled: true, name: 'Gemini' },
   perplexity: { model: 'sonar', enabled: true, name: 'Perplexity' },
 };
 
@@ -117,7 +117,7 @@ async function callGemini(prompt: string): Promise<string | null> {
     return null;
   }
   try {
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-pro-latest' });
     const result = await model.generateContent(prompt);
     const response = await result.response;
     const text = response.text();
@@ -316,3 +316,4 @@ export async function generateAllAIPicks(symbol: string): Promise<{
   
   return { picks, consensus, dbErrors, aiStatus };
 }
+
