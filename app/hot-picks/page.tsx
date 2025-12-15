@@ -38,7 +38,7 @@ interface HotPick {
   latestPick: Pick;
 }
 
-const AI_ICONS: Record<string, { icon: React.ReactNode; color: string }> = {
+const AI_ICONS: Record<string, { icon: JSX.Element; color: string }> = {
   gpt4: { icon: <Brain className="w-4 h-4" />, color: 'emerald' },
   claude: { icon: <Bot className="w-4 h-4" />, color: 'purple' },
   gemini: { icon: <Sparkles className="w-4 h-4" />, color: 'blue' },
