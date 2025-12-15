@@ -18,6 +18,14 @@
     {
       "path": "/api/cron/weekly-calibration",
       "schedule": "0 1 * * 0"
+    },
+    {
+      "path": "/api/outcomes",
+      "schedule": "0 14 * * *"
+    },
+    {
+      "path": "/api/calibration",
+      "schedule": "0 1 * * 0"
     }
   ]
 }
