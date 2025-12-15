@@ -1,9 +1,9 @@
 // lib/ai/pick-generator.ts
-// Market Oracle Ultimate - AI Pick Generator with Parallel Multi-Model Support
-// Created: December 13, 2025
-// Updated: December 14, 2025 - Parallel AI calls for faster response
+// Market Oracle Ultimate - AI Pick Generator with Google AI SDK
+// Updated: December 14, 2025 - Use official Google AI SDK for Gemini
 
 import { createClient } from '@supabase/supabase-js';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import type { AIModelName, AIPick, PickDirection, ConsensusAssessment } from '../types/learning';
 import { getLatestCalibration } from '../learning/calibration-engine';
 import { buildJavariConsensus } from '../learning/javari-consensus';
@@ -12,6 +12,11 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
+
+// Initialize Google AI
+const genAI = process.env.GEMINI_API_KEY 
+  ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
+  : null;
 
 // AI Configuration
 const AI_CONFIGS: Record<string, { model: string; enabled: boolean; name: string }> = {
@@ -107,18 +112,21 @@ async function callClaude(prompt: string): Promise<string | null> {
 }
 
 async function callGemini(prompt: string): Promise<string | null> {
-  const key = process.env.GEMINI_API_KEY || process.env.GOOGLE_GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY;
-  if (!key) return null;
+  if (!genAI) {
+    console.log('Gemini: No API key configured');
+    return null;
+  }
   try {
-    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
-    });
-    const d = await r.json();
-    if (d.error) return null;
-    return d.candidates?.[0]?.content?.parts?.[0]?.text || null;
-  } catch { return null; }
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const text = response.text();
+    console.log('Gemini response received:', text?.substring(0, 100));
+    return text || null;
+  } catch (err) {
+    console.error('Gemini SDK error:', err);
+    return null;
+  }
 }
 
 async function callPerplexity(prompt: string): Promise<string | null> {
