@@ -35,56 +35,41 @@ const QUICK_PROMPTS = [
   { icon: BookOpen, text: 'Risk management tips', category: 'education' },
 ];
 
-const MARKET_KNOWLEDGE = {
+const MARKET_KNOWLEDGE: Record<string, string> = {
   'analyze a stock': 'To analyze a stock in Market Oracle: 1) Go to the Dashboard, 2) Enter any stock symbol (like AAPL or NVDA), 3) Click Analyze, 4) Our 4 AI models (GPT-4, Claude, Gemini, Perplexity) will analyze it simultaneously, 5) Review each AI\'s reasoning by clicking to expand, 6) Check the Javari Consensus for the weighted verdict.',
   'ai models': 'Market Oracle uses 4 AI models: **GPT-4** (conservative, thorough analysis), **Claude** (balanced, risk-aware), **Gemini** (technical patterns), **Perplexity** (real-time news). Each brings unique strengths. Javari AI combines their predictions using accuracy-weighted voting.',
-  'javari consensus': 'Javari Consensus is our proprietary algorithm that synthesizes predictions from all AI models. It weights each AI based on historical accuracy, sector performance, and confidence levels. Strong consensus (80%+ agreement) indicates high conviction. Split consensus means genuine market uncertainty.',
-  'risk management': 'Key risk management rules: 1) Never risk more than 1-2% of portfolio per trade, 2) Always use stop losses (we provide levels), 3) Diversify across sectors, 4) Size positions based on your risk tolerance, 5) Track your trades and learn from outcomes.',
-  'default': 'I\'m Javari, your AI assistant for Market Oracle. I can help you understand our platform, explain AI predictions, teach trading concepts, and guide you through features. What would you like to know?'
+  'javari consensus': 'Javari Consensus is our proprietary algorithm that synthesizes predictions from all AI models. It weights each AI based on historical accuracy, sector performance, and confidence levels. Strong consensus (80%+ agreement) indicates high conviction. Split votes suggest caution.',
+  'risk management': 'Key risk management principles: 1) Never risk more than 1-2% of your portfolio per trade, 2) Always set stop losses before entering, 3) Size positions based on stop distance, 4) Reduce position size for weaker consensus, 5) Diversify across sectors, 6) Don\'t chase trades - wait for setups.',
+  'hot picks': 'Hot Picks shows stocks where multiple AI models strongly agree. These are high-conviction opportunities where 3+ AIs recommend the same direction with high confidence. However, always do your own research before trading.',
+  'how does it work': 'Market Oracle works by: 1) Fetching real-time market data for any stock, 2) Sending this data to 4 different AI models simultaneously, 3) Each AI provides direction, confidence, and reasoning, 4) Javari Consensus weights the votes by historical accuracy, 5) You get a unified verdict plus individual AI insights.',
 };
 
+function findAnswer(question: string): string {
+  const q = question.toLowerCase();
+  
+  for (const [key, answer] of Object.entries(MARKET_KNOWLEDGE)) {
+    if (q.includes(key) || key.split(' ').some(word => q.includes(word))) {
+      return answer;
+    }
+  }
+  
+  // Default response
+  return 'I can help you with Market Oracle! Try asking about: analyzing stocks, AI models, Javari Consensus, risk management, or how the platform works. For more in-depth learning, visit the Learn section.';
+}
+
 export default function JavariWidget() {
-  const [isOpen, setIsOpen] = useState(false);  // CLOSED BY DEFAULT
+  // START MINIMIZED - only show button, not expanded
+  const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
   const [context, setContext] = useState<JavariContext>({});
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  // Register global functions
-  globalOpenWidget = () => setIsOpen(true);
-  globalSetContext = setContext;
+  // Expose functions globally
+  globalOpenWidget = useCallback(() => setIsOpen(true), []);
+  globalSetContext = useCallback((ctx: JavariContext) => setContext(ctx), []);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
-  const generateResponse = useCallback((userMessage: string): string => {
-    const lower = userMessage.toLowerCase();
-    
-    for (const [key, response] of Object.entries(MARKET_KNOWLEDGE)) {
-      if (key !== 'default' && lower.includes(key)) {
-        return response;
-      }
-    }
-    
-    if (lower.includes('stock') || lower.includes('pick') || lower.includes('trade')) {
-      return MARKET_KNOWLEDGE['analyze a stock'];
-    }
-    if (lower.includes('ai') || lower.includes('model') || lower.includes('gpt') || lower.includes('claude')) {
-      return MARKET_KNOWLEDGE['ai models'];
-    }
-    if (lower.includes('consensus') || lower.includes('javari')) {
-      return MARKET_KNOWLEDGE['javari consensus'];
-    }
-    if (lower.includes('risk') || lower.includes('stop') || lower.includes('loss')) {
-      return MARKET_KNOWLEDGE['risk management'];
-    }
-    
-    return MARKET_KNOWLEDGE['default'];
-  }, []);
-
-  const handleSend = useCallback(() => {
+  const handleSend = () => {
     if (!input.trim()) return;
 
     const userMessage: Message = {
@@ -93,61 +78,65 @@ export default function JavariWidget() {
       timestamp: new Date(),
     };
 
-    setMessages(prev => [...prev, userMessage]);
+    const answer = findAnswer(input);
+    const assistantMessage: Message = {
+      role: 'assistant',
+      content: answer,
+      timestamp: new Date(),
+    };
+
+    setMessages([...messages, userMessage, assistantMessage]);
     setInput('');
-    setIsTyping(true);
-
-    setTimeout(() => {
-      const response = generateResponse(input);
-      const assistantMessage: Message = {
-        role: 'assistant',
-        content: response,
-        timestamp: new Date(),
-      };
-      setMessages(prev => [...prev, assistantMessage]);
-      setIsTyping(false);
-      setTimeout(scrollToBottom, 100);
-    }, 500 + Math.random() * 500);
-  }, [input, generateResponse]);
-
-  const handleQuickPrompt = (text: string) => {
-    setInput(text);
-    setTimeout(() => handleSend(), 100);
+    inputRef.current?.focus();
   };
 
-  // MINIMIZED STATE - Just a button
+  const handleQuickPrompt = (prompt: string) => {
+    const userMessage: Message = {
+      role: 'user',
+      content: prompt,
+      timestamp: new Date(),
+    };
+
+    const answer = findAnswer(prompt);
+    const assistantMessage: Message = {
+      role: 'assistant',
+      content: answer,
+      timestamp: new Date(),
+    };
+
+    setMessages([...messages, userMessage, assistantMessage]);
+  };
+
+  // ONLY show minimized button when closed
   if (!isOpen) {
     return (
       <button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-6 w-14 h-14 bg-gradient-to-br from-amber-500 to-orange-600 rounded-full shadow-lg hover:shadow-xl hover:shadow-amber-500/30 transition-all flex items-center justify-center z-50 group"
-        title="Ask Javari AI"
+        className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-gradient-to-br from-amber-500 to-orange-600 shadow-lg shadow-amber-500/25 flex items-center justify-center hover:scale-110 transition-transform z-50"
+        aria-label="Open Javari AI Assistant"
       >
-        <MessageCircle className="w-6 h-6 text-white" />
-        <span className="absolute -top-10 right-0 bg-gray-900 text-white text-xs px-3 py-1 rounded-lg opacity-0 group-hover:opacity-100 transition whitespace-nowrap">
-          Ask Javari AI
-        </span>
+        <Sparkles className="w-6 h-6 text-white" />
       </button>
     );
   }
 
-  // EXPANDED STATE - Full chat
+  // Expanded widget
   return (
-    <div className="fixed bottom-6 right-6 w-96 h-[500px] bg-gray-900 border border-gray-700 rounded-2xl shadow-2xl flex flex-col overflow-hidden z-50">
+    <div className="fixed bottom-6 right-6 w-96 h-[500px] bg-gray-900 border border-gray-700 rounded-2xl shadow-2xl flex flex-col z-50 overflow-hidden">
       {/* Header */}
-      <div className="bg-gradient-to-r from-amber-500 to-orange-600 px-4 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
-            <Sparkles className="w-4 h-4 text-white" />
+      <div className="bg-gradient-to-r from-amber-500 to-orange-600 p-4 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+            <Sparkles className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h3 className="font-semibold text-white text-sm">Javari AI</h3>
-            <p className="text-white/70 text-xs">Your Market Oracle Guide</p>
+            <h3 className="font-bold text-white">Javari AI</h3>
+            <p className="text-white/70 text-xs">Market Oracle Assistant</p>
           </div>
         </div>
-        <button
+        <button 
           onClick={() => setIsOpen(false)}
-          className="text-white/70 hover:text-white transition p-1"
+          className="text-white/70 hover:text-white p-1"
         >
           <X className="w-5 h-5" />
         </button>
@@ -156,19 +145,18 @@ export default function JavariWidget() {
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.length === 0 ? (
-          <div className="space-y-4">
-            <p className="text-gray-400 text-sm">
-              Hi! I'm Javari, your AI assistant for Market Oracle. How can I help you today?
-            </p>
+          <div className="text-center py-4">
+            <Sparkles className="w-8 h-8 text-amber-400 mx-auto mb-2" />
+            <p className="text-gray-400 text-sm mb-4">Hi! I'm Javari. How can I help you today?</p>
             <div className="grid grid-cols-2 gap-2">
               {QUICK_PROMPTS.map((prompt, i) => (
                 <button
                   key={i}
                   onClick={() => handleQuickPrompt(prompt.text)}
-                  className="flex items-center gap-2 p-2 bg-gray-800 hover:bg-gray-700 rounded-lg text-left text-xs text-gray-300 transition"
+                  className="flex items-center gap-2 p-2 bg-gray-800 hover:bg-gray-700 rounded-lg text-left text-sm text-gray-300 transition"
                 >
-                  <prompt.icon className="w-4 h-4 text-amber-400 flex-shrink-0" />
-                  <span>{prompt.text}</span>
+                  <prompt.icon className="w-4 h-4 text-amber-400 shrink-0" />
+                  <span className="line-clamp-1">{prompt.text}</span>
                 </button>
               ))}
             </div>
@@ -180,40 +168,29 @@ export default function JavariWidget() {
               className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
             >
               <div
-                className={`max-w-[80%] px-3 py-2 rounded-xl text-sm ${
+                className={`max-w-[80%] rounded-xl px-4 py-2 ${
                   msg.role === 'user'
                     ? 'bg-amber-500 text-white'
                     : 'bg-gray-800 text-gray-200'
                 }`}
               >
-                {msg.content}
+                <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
               </div>
             </div>
           ))
         )}
-        {isTyping && (
-          <div className="flex justify-start">
-            <div className="bg-gray-800 px-4 py-2 rounded-xl">
-              <div className="flex gap-1">
-                <span className="w-2 h-2 bg-amber-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
-                <span className="w-2 h-2 bg-amber-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
-                <span className="w-2 h-2 bg-amber-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
-              </div>
-            </div>
-          </div>
-        )}
-        <div ref={messagesEndRef} />
       </div>
 
       {/* Input */}
-      <div className="p-3 border-t border-gray-800">
+      <div className="p-4 border-t border-gray-700">
         <div className="flex gap-2">
           <input
+            ref={inputRef}
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-            placeholder="Ask me anything..."
+            onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+            placeholder="Ask Javari anything..."
             className="flex-1 bg-gray-800 border border-gray-700 rounded-xl px-4 py-2 text-sm text-white placeholder-gray-500 focus:border-amber-500 focus:outline-none"
           />
           <button
