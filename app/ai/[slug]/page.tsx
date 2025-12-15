@@ -37,7 +37,7 @@ const AI_PROFILES: Record<string, {
   fullName: string;
   provider: string;
   color: string;
-  icon: React.ReactNode;
+  icon: JSX.Element;
   description: string;
   personality: string;
   strengths: string[];
