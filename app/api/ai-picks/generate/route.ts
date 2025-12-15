@@ -1,13 +1,12 @@
 // app/api/ai-picks/generate/route.ts
 // Market Oracle Ultimate - Generate AI Picks API
-// Created: December 13, 2025
-// Updated: December 14, 2025 - Added DB error reporting
+// Updated: December 14, 2025 - Added AI status reporting
 
 import { NextRequest, NextResponse } from 'next/server';
 import { generateAllAIPicks, generatePickFromAI } from '@/lib/ai/pick-generator';
 
 export const runtime = 'nodejs';
-export const maxDuration = 60;
+export const maxDuration = 120; // Allow up to 2 minutes for multiple AIs
 
 export async function POST(request: NextRequest) {
   try {
@@ -28,7 +27,7 @@ export async function POST(request: NextRequest) {
       
       if (!pick) {
         return NextResponse.json(
-          { error: `Failed to generate ${aiModel} pick for ${upperSymbol}` },
+          { error: `Failed to generate ${aiModel} pick for ${upperSymbol}. The AI may be unavailable.` },
           { status: 500 }
         );
       }
@@ -49,6 +48,7 @@ export async function POST(request: NextRequest) {
       picks: result.picks,
       consensus: result.consensus,
       dbErrors: result.dbErrors,
+      aiStatus: result.aiStatus,
       timestamp: new Date().toISOString(),
     });
 
