@@ -1,5 +1,5 @@
 // app/hot-picks/page.tsx
-// Hot Picks - Shows high-consensus stock picks
+// Hot Picks - Shows high-consensus stock picks with links to detail pages
 
 'use client';
 
@@ -8,7 +8,7 @@ import Link from 'next/link';
 import { 
   Flame, TrendingUp, TrendingDown, RefreshCw,
   Target, Brain, Zap, Sparkles, Bot, Clock,
-  ChevronRight, MinusCircle
+  ChevronRight, MinusCircle, ExternalLink
 } from 'lucide-react';
 
 interface Pick {
@@ -23,141 +23,150 @@ interface Pick {
   target_price: number;
   stop_loss: number;
   thesis: string;
-  status: string;
   created_at: string;
+  status: string;
 }
 
-interface ConsensusPick {
+interface HotPick {
   symbol: string;
-  company_name: string;
+  companyName: string;
   sector: string;
-  direction: string;
-  consensus_count: number;
-  avg_confidence: number;
-  avg_target: number;
+  consensusDirection: 'UP' | 'DOWN' | 'HOLD';
+  avgConfidence: number;
+  aiCount: number;
   picks: Pick[];
+  latestPick: Pick;
 }
 
-const AI_INFO: Record<string, { name: string; color: string }> = {
-  gpt4: { name: 'GPT-4', color: 'bg-emerald-500' },
-  claude: { name: 'Claude', color: 'bg-purple-500' },
-  gemini: { name: 'Gemini', color: 'bg-blue-500' },
-  perplexity: { name: 'Perplexity', color: 'bg-cyan-500' },
+const AI_ICONS: Record<string, { icon: React.ReactNode; color: string }> = {
+  gpt4: { icon: <Brain className="w-4 h-4" />, color: 'emerald' },
+  claude: { icon: <Bot className="w-4 h-4" />, color: 'purple' },
+  gemini: { icon: <Sparkles className="w-4 h-4" />, color: 'blue' },
+  perplexity: { icon: <Zap className="w-4 h-4" />, color: 'cyan' },
 };
 
 export default function HotPicksPage() {
-  const [picks, setPicks] = useState<Pick[]>([]);
-  const [consensusPicks, setConsensusPicks] = useState<ConsensusPick[]>([]);
+  const [hotPicks, setHotPicks] = useState<HotPick[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<'all' | 'UP' | 'DOWN' | 'HOLD'>('all');
+  const [filter, setFilter] = useState<'all' | 'UP' | 'DOWN'>('all');
 
   useEffect(() => {
     fetchPicks();
   }, []);
 
   const fetchPicks = async () => {
-    setLoading(true);
     try {
+      setLoading(true);
       const res = await fetch('/api/ai-picks/generate?limit=100');
       const data = await res.json();
-      
+
       if (data.success && data.picks) {
-        setPicks(data.picks);
-        
-        // Group by symbol to find consensus
+        // Group by symbol
         const bySymbol: Record<string, Pick[]> = {};
         for (const pick of data.picks) {
           if (!bySymbol[pick.symbol]) {
             bySymbol[pick.symbol] = [];
           }
-          // Only add one pick per AI per symbol (most recent)
-          const existingAI = bySymbol[pick.symbol].find(p => p.ai_model === pick.ai_model);
-          if (!existingAI) {
-            bySymbol[pick.symbol].push(pick);
-          }
+          bySymbol[pick.symbol].push(pick);
         }
-        
+
         // Calculate consensus for each symbol
-        const consensus: ConsensusPick[] = [];
-        for (const [symbol, symbolPicks] of Object.entries(bySymbol)) {
-          if (symbolPicks.length < 2) continue; // Need at least 2 AIs
-          
-          // Find majority direction
-          const directions = symbolPicks.reduce((acc, p) => {
-            acc[p.direction] = (acc[p.direction] || 0) + 1;
-            return acc;
-          }, {} as Record<string, number>);
-          
-          const maxDir = Object.entries(directions).sort((a, b) => b[1] - a[1])[0];
-          const agreedPicks = symbolPicks.filter(p => p.direction === maxDir[0]);
-          
-          if (agreedPicks.length >= 2) {
-            consensus.push({
-              symbol,
-              company_name: agreedPicks[0].company_name,
-              sector: agreedPicks[0].sector,
-              direction: maxDir[0],
-              consensus_count: agreedPicks.length,
-              avg_confidence: agreedPicks.reduce((a, p) => a + p.confidence, 0) / agreedPicks.length,
-              avg_target: agreedPicks.reduce((a, p) => a + (p.target_price || 0), 0) / agreedPicks.length,
-              picks: agreedPicks,
-            });
+        const hotPicksList: HotPick[] = [];
+        for (const [symbol, picks] of Object.entries(bySymbol)) {
+          // Get latest pick from each AI
+          const latestByAI: Record<string, Pick> = {};
+          for (const pick of picks) {
+            if (!latestByAI[pick.ai_model] || 
+                new Date(pick.created_at) > new Date(latestByAI[pick.ai_model].created_at)) {
+              latestByAI[pick.ai_model] = pick;
+            }
           }
+          
+          const latestPicks = Object.values(latestByAI);
+          if (latestPicks.length < 2) continue; // Need at least 2 AI opinions
+
+          // Count directions
+          const dirCounts: Record<string, number> = { UP: 0, DOWN: 0, HOLD: 0 };
+          let totalConfidence = 0;
+          for (const pick of latestPicks) {
+            dirCounts[pick.direction]++;
+            totalConfidence += pick.confidence;
+          }
+
+          // Get consensus direction
+          const consensusDirection = Object.entries(dirCounts)
+            .sort((a, b) => b[1] - a[1])[0][0] as 'UP' | 'DOWN' | 'HOLD';
+
+          // Only include if majority agrees
+          const agreementRatio = dirCounts[consensusDirection] / latestPicks.length;
+          if (agreementRatio < 0.5) continue;
+
+          const latestPick = latestPicks.sort((a, b) => 
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+          )[0];
+
+          hotPicksList.push({
+            symbol,
+            companyName: latestPick.company_name || symbol,
+            sector: latestPick.sector || 'Unknown',
+            consensusDirection,
+            avgConfidence: totalConfidence / latestPicks.length,
+            aiCount: latestPicks.length,
+            picks: latestPicks,
+            latestPick,
+          });
         }
-        
-        // Sort by consensus count and confidence
-        consensus.sort((a, b) => {
-          if (b.consensus_count !== a.consensus_count) {
-            return b.consensus_count - a.consensus_count;
-          }
-          return b.avg_confidence - a.avg_confidence;
-        });
-        
-        setConsensusPicks(consensus);
+
+        // Sort by confidence
+        hotPicksList.sort((a, b) => b.avgConfidence - a.avgConfidence);
+        setHotPicks(hotPicksList);
       }
     } catch (err) {
       console.error('Failed to fetch picks:', err);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
-  const filteredPicks = consensusPicks.filter(p => 
-    filter === 'all' || p.direction === filter
-  );
+  const filteredPicks = filter === 'all' 
+    ? hotPicks 
+    : hotPicks.filter(p => p.consensusDirection === filter);
 
   return (
     <div className="min-h-screen bg-gray-950 text-white">
       {/* Header */}
-      <div className="bg-gradient-to-r from-orange-500/10 to-red-500/10 border-b border-gray-800">
-        <div className="max-w-7xl mx-auto px-4 py-8">
+      <div className="bg-gradient-to-r from-orange-500/10 to-gray-900 border-b border-gray-800">
+        <div className="max-w-6xl mx-auto px-4 py-8">
           <div className="flex items-center gap-4 mb-4">
             <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center">
-              <Flame className="w-7 h-7 text-white" />
+              <Flame className="w-8 h-8 text-white" />
             </div>
             <div>
               <h1 className="text-3xl font-bold">Hot Picks</h1>
-              <p className="text-gray-400">Stocks with strong AI consensus</p>
+              <p className="text-gray-400">High-consensus opportunities from multiple AIs</p>
             </div>
           </div>
-          
-          {/* Filters */}
-          <div className="flex gap-2 mt-6">
-            {(['all', 'UP', 'DOWN', 'HOLD'] as const).map((f) => (
-              <button
-                key={f}
-                onClick={() => setFilter(f)}
-                className={`px-4 py-2 rounded-lg font-medium transition ${
-                  filter === f
-                    ? 'bg-amber-500 text-white'
-                    : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
-                }`}
-              >
-                {f === 'all' ? 'All' : f}
-              </button>
-            ))}
+
+          <div className="flex items-center gap-4 mt-6">
+            <div className="flex bg-gray-800 rounded-lg p-1">
+              {(['all', 'UP', 'DOWN'] as const).map((f) => (
+                <button
+                  key={f}
+                  onClick={() => setFilter(f)}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
+                    filter === f 
+                      ? 'bg-amber-500 text-white' 
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  {f === 'all' ? 'All' : f}
+                </button>
+              ))}
+            </div>
             <button
               onClick={fetchPicks}
-              className="ml-auto flex items-center gap-2 px-4 py-2 bg-gray-800 rounded-lg text-gray-400 hover:bg-gray-700 transition"
+              disabled={loading}
+              className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg text-gray-300 transition"
             >
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
               Refresh
@@ -167,150 +176,115 @@ export default function HotPicksPage() {
       </div>
 
       {/* Content */}
-      <div className="max-w-7xl mx-auto px-4 py-8">
+      <div className="max-w-6xl mx-auto px-4 py-8">
         {loading ? (
-          <div className="flex items-center justify-center py-20">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-amber-500"></div>
+          <div className="text-center py-12">
+            <RefreshCw className="w-8 h-8 text-amber-400 animate-spin mx-auto mb-4" />
+            <p className="text-gray-400">Loading hot picks...</p>
           </div>
         ) : filteredPicks.length === 0 ? (
-          <div className="text-center py-20">
-            <Flame className="w-16 h-16 text-gray-700 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-gray-400">No Hot Picks Found</h3>
-            <p className="text-gray-500 mt-2">
-              {filter !== 'all' 
-                ? `No stocks with ${filter} consensus right now` 
-                : 'Generate some stock analyses to see hot picks'}
+          <div className="bg-gray-800/50 rounded-xl p-12 text-center">
+            <Flame className="w-12 h-12 text-gray-600 mx-auto mb-4" />
+            <h3 className="text-xl font-bold text-white mb-2">No Hot Picks Right Now</h3>
+            <p className="text-gray-400 mb-6">
+              Hot picks appear when multiple AIs agree on a direction. Try analyzing some stocks first!
             </p>
             <Link
               href="/ai-picks"
-              className="inline-flex items-center gap-2 mt-6 bg-amber-500 text-white px-6 py-3 rounded-lg font-semibold hover:bg-amber-600 transition"
+              className="inline-flex items-center gap-2 bg-gradient-to-r from-amber-500 to-orange-600 text-white px-6 py-3 rounded-lg font-medium"
             >
-              <TrendingUp className="w-5 h-5" />
-              Analyze Stocks
+              Analyze Stocks <ChevronRight className="w-4 h-4" />
             </Link>
           </div>
         ) : (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredPicks.map((cp) => (
+          <div className="grid gap-4">
+            {filteredPicks.map((pick) => (
               <Link
-                key={cp.symbol}
-                href={`/stock/${cp.symbol}`}
-                className="block bg-gray-900 border border-gray-800 rounded-2xl p-5 hover:border-amber-500/50 hover:shadow-lg hover:shadow-amber-500/10 transition group"
+                key={pick.symbol}
+                href={`/stock/${pick.symbol}`}
+                className="block bg-gray-800/50 hover:bg-gray-800 border border-gray-700 hover:border-amber-500/50 rounded-xl p-6 transition group"
               >
-                {/* Header */}
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-bold text-lg ${
-                      cp.direction === 'UP' ? 'bg-green-500/20 text-green-400' :
-                      cp.direction === 'DOWN' ? 'bg-red-500/20 text-red-400' :
-                      'bg-yellow-500/20 text-yellow-400'
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    {/* Direction Badge */}
+                    <div className={`w-14 h-14 rounded-xl flex items-center justify-center ${
+                      pick.consensusDirection === 'UP' 
+                        ? 'bg-emerald-500/20' 
+                        : pick.consensusDirection === 'DOWN'
+                        ? 'bg-red-500/20'
+                        : 'bg-yellow-500/20'
                     }`}>
-                      {cp.symbol.slice(0, 2)}
+                      {pick.consensusDirection === 'UP' && (
+                        <TrendingUp className="w-7 h-7 text-emerald-400" />
+                      )}
+                      {pick.consensusDirection === 'DOWN' && (
+                        <TrendingDown className="w-7 h-7 text-red-400" />
+                      )}
+                      {pick.consensusDirection === 'HOLD' && (
+                        <MinusCircle className="w-7 h-7 text-yellow-400" />
+                      )}
                     </div>
+
+                    {/* Stock Info */}
                     <div>
-                      <h3 className="font-bold text-lg group-hover:text-amber-400 transition">{cp.symbol}</h3>
-                      <p className="text-sm text-gray-500">{cp.company_name}</p>
+                      <h3 className="text-xl font-bold text-white group-hover:text-amber-400 transition">
+                        {pick.symbol}
+                        <ExternalLink className="w-4 h-4 inline ml-2 opacity-0 group-hover:opacity-100 transition" />
+                      </h3>
+                      <p className="text-gray-400">{pick.companyName}</p>
+                      <p className="text-gray-500 text-sm">{pick.sector}</p>
                     </div>
                   </div>
-                  
-                  {/* Direction Badge */}
-                  <div className={`flex items-center gap-1 px-3 py-1.5 rounded-lg font-bold ${
-                    cp.direction === 'UP' ? 'bg-green-500/20 text-green-400' :
-                    cp.direction === 'DOWN' ? 'bg-red-500/20 text-red-400' :
-                    'bg-yellow-500/20 text-yellow-400'
-                  }`}>
-                    {cp.direction === 'UP' ? <TrendingUp className="w-4 h-4" /> :
-                     cp.direction === 'DOWN' ? <TrendingDown className="w-4 h-4" /> :
-                     <MinusCircle className="w-4 h-4" />}
-                    {cp.direction}
+
+                  {/* Stats */}
+                  <div className="flex items-center gap-8">
+                    {/* AI Agreement */}
+                    <div className="text-center">
+                      <p className="text-gray-400 text-sm">AI Agreement</p>
+                      <p className="text-xl font-bold text-white">{pick.aiCount}/4</p>
+                      <div className="flex gap-1 mt-1 justify-center">
+                        {pick.picks.map((p, i) => {
+                          const ai = AI_ICONS[p.ai_model];
+                          return (
+                            <div 
+                              key={i}
+                              className={`w-6 h-6 rounded-full bg-${ai?.color || 'gray'}-500/20 flex items-center justify-center text-${ai?.color || 'gray'}-400`}
+                              title={p.ai_model}
+                            >
+                              {ai?.icon || <Bot className="w-3 h-3" />}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Confidence */}
+                    <div className="text-center">
+                      <p className="text-gray-400 text-sm">Avg Confidence</p>
+                      <p className="text-2xl font-bold text-amber-400">{pick.avgConfidence.toFixed(0)}%</p>
+                    </div>
+
+                    {/* Target */}
+                    <div className="text-center">
+                      <p className="text-gray-400 text-sm">Target</p>
+                      <p className="text-xl font-bold text-emerald-400">
+                        ${pick.latestPick.target_price?.toFixed(2) || 'N/A'}
+                      </p>
+                    </div>
+
+                    {/* Arrow */}
+                    <ChevronRight className="w-6 h-6 text-gray-500 group-hover:text-amber-400 transition" />
                   </div>
                 </div>
-                
-                {/* Consensus */}
-                <div className="mb-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className={`text-2xl font-bold ${
-                      cp.consensus_count >= 4 ? 'text-orange-400' :
-                      cp.consensus_count >= 3 ? 'text-yellow-400' :
-                      'text-gray-400'
-                    }`}>
-                      {cp.consensus_count}/4
-                    </span>
-                    <span className="text-gray-500">AIs agree</span>
-                    <span className="text-amber-400 ml-auto">{cp.avg_confidence.toFixed(0)}% avg</span>
-                  </div>
-                  
-                  {/* AI Badges */}
-                  <div className="flex flex-wrap gap-1">
-                    {cp.picks.map((p, i) => {
-                      const ai = AI_INFO[p.ai_model] || { name: p.ai_model, color: 'bg-gray-500' };
-                      return (
-                        <span
-                          key={i}
-                          className={`px-2 py-0.5 rounded text-xs font-medium text-white ${ai.color}`}
-                        >
-                          {ai.name}
-                        </span>
-                      );
-                    })}
-                  </div>
-                </div>
-                
-                {/* Target */}
-                <div className="flex items-center justify-between pt-3 border-t border-gray-800">
-                  <div>
-                    <span className="text-gray-500 text-sm">Avg Target</span>
-                    <div className="text-lg font-bold text-green-400">${cp.avg_target.toFixed(2)}</div>
-                  </div>
-                  <div className="flex items-center gap-1 text-gray-400 group-hover:text-amber-400 transition">
-                    View Details
-                    <ChevronRight className="w-4 h-4" />
-                  </div>
+
+                {/* Thesis Preview */}
+                <div className="mt-4 pt-4 border-t border-gray-700">
+                  <p className="text-gray-400 text-sm line-clamp-2">
+                    {pick.latestPick.thesis}
+                  </p>
                 </div>
               </Link>
             ))}
-          </div>
-        )}
-
-        {/* Recent Picks Section */}
-        {picks.length > 0 && (
-          <div className="mt-12">
-            <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
-              <Clock className="w-5 h-5 text-amber-400" />
-              Recent Individual Picks
-            </h2>
-            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {picks.slice(0, 8).map((pick) => {
-                const ai = AI_INFO[pick.ai_model] || { name: pick.ai_model, color: 'bg-gray-500' };
-                return (
-                  <Link
-                    key={pick.id}
-                    href={`/stock/${pick.symbol}`}
-                    className="bg-gray-900 border border-gray-800 rounded-xl p-4 hover:border-gray-700 transition"
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="font-bold">{pick.symbol}</span>
-                      <span className={`px-2 py-0.5 rounded text-xs font-medium text-white ${ai.color}`}>
-                        {ai.name}
-                      </span>
-                    </div>
-                    <div className={`flex items-center gap-1 text-sm ${
-                      pick.direction === 'UP' ? 'text-green-400' :
-                      pick.direction === 'DOWN' ? 'text-red-400' :
-                      'text-yellow-400'
-                    }`}>
-                      {pick.direction === 'UP' ? <TrendingUp className="w-3 h-3" /> :
-                       pick.direction === 'DOWN' ? <TrendingDown className="w-3 h-3" /> :
-                       <MinusCircle className="w-3 h-3" />}
-                      {pick.direction} • {pick.confidence}%
-                    </div>
-                    <div className="text-xs text-gray-500 mt-1">
-                      Target: ${pick.target_price?.toFixed(2)}
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
           </div>
         )}
       </div>
