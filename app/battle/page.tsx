@@ -102,7 +102,7 @@ function AILeaderboardCard({ ai, rank, isExpanded, onToggle }: {
             </div>
           </div>
           <Link 
-            href={`/ai/${ai.name}`}
+            href={`/ai/${ai.name.toLowerCase().replace(/ /g, '_').replace(/[^a-z0-9_]/g, '')}`}
             className="block mt-4 text-center text-sm text-cyan-400 hover:text-cyan-300"
           >
             View {ai.displayName}'s Full Profile →
@@ -388,3 +388,4 @@ export default function AIBattlePage() {
     </div>
   );
 }
+
