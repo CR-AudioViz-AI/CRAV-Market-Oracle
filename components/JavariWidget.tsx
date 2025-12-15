@@ -206,9 +206,6 @@ export default function JavariWidget() {
   );
 }
 
-
-}
-
 // Helper button component for other pages
 export function JavariHelpButton({ topic, context }: { topic?: string; context?: string }) {
   return (
@@ -223,3 +220,4 @@ export function JavariHelpButton({ topic, context }: { topic?: string; context?:
     </button>
   );
 }
+
