@@ -1,24 +1,11 @@
-// ============================================================================
-// MARKET ORACLE - CENTRALIZED SUPABASE CLIENT
-// Connects to CR AudioViz AI central database
-// CLIENT-SIDE ONLY - includes all data fetching functions
-// Created: December 15, 2025
-// ============================================================================
-
+// lib/supabase.ts - Market Oracle V4
+// Fixed version with reliable data fetching and AI model joining
 import { createClient } from '@supabase/supabase-js';
-import { createBrowserClient } from '@supabase/ssr';
 
-// CENTRALIZED Supabase - same as main website
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://kteobfyferrukqeolofj.supabase.co';
-const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://kteobfyferrukqeolofj.supabase.co';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
-// Browser client (client-side)
-export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-// Create browser client for client components
-export function createSupabaseBrowserClient() {
-  return createBrowserClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-}
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // Types
 export type Category = 'regular' | 'penny' | 'crypto' | 'all';
@@ -27,258 +14,400 @@ export type PickStatus = 'active' | 'won' | 'lost' | 'expired';
 
 export interface StockPick {
   id: string;
-  user_id?: string;
+  competition_id: string;
+  ai_model_id: string;
+  ticker: string;
   symbol: string;
   company_name: string;
-  sector: string;
   category: Category;
-  ai_model: string;
+  asset_type: string;
   direction: Direction;
   confidence: number;
-  timeframe: string;
+  confidence_score: number;
   entry_price: number;
+  current_price: number | null;
   target_price: number;
   stop_loss: number;
-  current_price?: number;
-  price_change?: number;
-  price_change_percent?: number;
-  thesis: string;
-  full_reasoning: string;
-  factor_assessments?: any[];
-  key_bullish_factors: string[];
-  key_bearish_factors: string[];
-  risks: string[];
-  catalysts: string[];
+  price_change_percent: number | null;
+  price_change_dollars: number | null;
+  reasoning: string;
+  reasoning_summary: string;
+  key_factors: string[];
+  risk_factors: string[];
   status: PickStatus;
-  actual_return?: number;
+  result: string | null;
+  profit_loss_percent: number | null;
+  profit_loss_dollars: number | null;
+  points_earned: number;
+  week_number: number;
+  pick_date: string;
+  expiry_date: string;
+  closed_at: string | null;
+  price_updated_at: string | null;
   created_at: string;
   updated_at: string;
-  closed_at?: string;
+  // Joined fields
+  ai_name?: string;
+  ai_display_name?: string;
+  ai_color?: string;
 }
 
 export interface AIModel {
   id: string;
   name: string;
   display_name: string;
-  description: string;
+  provider: string;
   color: string;
-  gradient: string;
-  total_picks: number;
-  win_rate: number;
-  avg_return: number;
-  created_at: string;
+  is_active: boolean;
+  specialty?: string;
+  tagline?: string;
+  avatar_url?: string;
 }
 
-// Get AI models
+// Cache AI models to avoid repeated fetches
+let aiModelsCache: AIModel[] | null = null;
+let aiModelsCacheTime: number = 0;
+const CACHE_TTL = 60000; // 1 minute
+
+// ============================================
+// CORE FETCH FUNCTIONS
+// ============================================
+
+/**
+ * Get all AI models (cached)
+ */
 export async function getAIModels(): Promise<AIModel[]> {
-  const { data, error } = await supabase
-    .from('ai_models')
-    .select('*')
-    .order('name');
-
-  if (error) {
-    console.error('Error fetching AI models:', error);
-    return [];
+  const now = Date.now();
+  if (aiModelsCache && (now - aiModelsCacheTime) < CACHE_TTL) {
+    return aiModelsCache;
   }
-  return data || [];
-}
-
-// Get picks with optional filters
-export async function getPicks(filters?: {
-  symbol?: string;
-  aiModel?: string;
-  direction?: Direction;
-  category?: Category;
-  status?: PickStatus;
-  limit?: number;
-  offset?: number;
-}): Promise<StockPick[]> {
-  let query = supabase
-    .from('ai_picks')
-    .select('*')
-    .order('created_at', { ascending: false });
-
-  if (filters?.symbol) {
-    query = query.eq('symbol', filters.symbol.toUpperCase());
-  }
-  if (filters?.aiModel) {
-    query = query.eq('ai_model', filters.aiModel);
-  }
-  if (filters?.direction) {
-    query = query.eq('direction', filters.direction);
-  }
-  if (filters?.category && filters.category !== 'all') {
-    query = query.eq('category', filters.category);
-  }
-  if (filters?.status) {
-    query = query.eq('status', filters.status);
-  }
-  if (filters?.limit) {
-    query = query.limit(filters.limit);
-  }
-  if (filters?.offset) {
-    query = query.range(filters.offset, filters.offset + (filters.limit || 10) - 1);
-  }
-
-  const { data, error } = await query;
-
-  if (error) {
-    console.error('Error fetching picks:', error);
-    return [];
-  }
-  return data || [];
-}
-
-// Get all stock picks
-export async function getAllStockPicks(): Promise<StockPick[]> {
-  const { data, error } = await supabase
-    .from('ai_picks')
-    .select('*')
-    .order('created_at', { ascending: false });
-
-  if (error) {
-    console.error('Error fetching all picks:', error);
-    return [];
-  }
-  return data || [];
-}
-
-// Get hot picks (high confidence, bullish)
-export async function getHotPicks(category?: Category): Promise<any[]> {
-  let query = supabase
-    .from('ai_picks')
-    .select('*')
-    .eq('direction', 'UP')
-    .gte('confidence', 70)
-    .eq('status', 'active')
-    .order('confidence', { ascending: false })
-    .limit(10);
-
-  if (category && category !== 'all') {
-    query = query.eq('category', category);
-  }
-
-  const { data, error } = await query;
-
-  if (error) {
-    console.error('Error fetching hot picks:', error);
-    return [];
-  }
-  return data || [];
-}
-
-// Get AI statistics
-export async function getAIStatistics(category?: Category): Promise<any[]> {
-  // For now, return aggregated data from picks
-  const picks = await getAllStockPicks();
   
-  const aiStats: Record<string, { 
-    name: string; 
-    total: number; 
-    wins: number; 
-    totalReturn: number;
-    avgConfidence: number;
-  }> = {};
-
-  for (const pick of picks) {
-    if (!aiStats[pick.ai_model]) {
-      aiStats[pick.ai_model] = { 
-        name: pick.ai_model, 
-        total: 0, 
-        wins: 0, 
-        totalReturn: 0,
-        avgConfidence: 0
-      };
-    }
-    aiStats[pick.ai_model].total++;
-    aiStats[pick.ai_model].avgConfidence += pick.confidence;
-    if (pick.status === 'won') {
-      aiStats[pick.ai_model].wins++;
-    }
-    if (pick.actual_return) {
-      aiStats[pick.ai_model].totalReturn += pick.actual_return;
-    }
+  try {
+    const { data, error } = await supabase
+      .from('ai_models')
+      .select('*')
+      .eq('is_active', true)
+      .order('display_name');
+    
+    if (error) throw error;
+    aiModelsCache = data || [];
+    aiModelsCacheTime = now;
+    return aiModelsCache;
+  } catch (e) {
+    console.error('getAIModels error:', e);
+    return [];
   }
-
-  return Object.values(aiStats).map(stat => ({
-    name: stat.name,
-    display_name: stat.name.toUpperCase(),
-    total_picks: stat.total,
-    win_rate: stat.total > 0 ? (stat.wins / stat.total) * 100 : 0,
-    avg_return: stat.total > 0 ? stat.totalReturn / stat.total : 0,
-    avg_confidence: stat.total > 0 ? stat.avgConfidence / stat.total : 0,
-  }));
 }
 
-// Get overall stats
+/**
+ * Get all picks with AI model info joined client-side
+ */
+export async function getPicks(filters?: {
+  category?: Category;
+  aiModelId?: string;
+  status?: PickStatus;
+  ticker?: string;
+  limit?: number;
+}): Promise<StockPick[]> {
+  try {
+    // Fetch picks and AI models separately
+    const [aiModels, picksResult] = await Promise.all([
+      getAIModels(),
+      (async () => {
+        let query = supabase
+          .from('stock_picks')
+          .select('*')
+          .order('created_at', { ascending: false });
+        
+        if (filters?.category && filters.category !== 'all') {
+          query = query.eq('category', filters.category);
+        }
+        if (filters?.aiModelId) {
+          query = query.eq('ai_model_id', filters.aiModelId);
+        }
+        if (filters?.status) {
+          query = query.eq('status', filters.status);
+        }
+        if (filters?.ticker) {
+          query = query.eq('ticker', filters.ticker.toUpperCase());
+        }
+        if (filters?.limit) {
+          query = query.limit(filters.limit);
+        }
+        
+        return query;
+      })()
+    ]);
+    
+    const { data: picks, error } = picksResult;
+    if (error) throw error;
+    
+    // Create AI model lookup map
+    const aiMap = new Map<string, AIModel>();
+    aiModels.forEach(ai => aiMap.set(ai.id, ai));
+    
+    // Join AI info to picks
+    return (picks || []).map(pick => {
+      const ai = aiMap.get(pick.ai_model_id);
+      return {
+        ...pick,
+        symbol: pick.ticker,
+        confidence_score: pick.confidence,
+        ai_name: ai?.name || 'Unknown',
+        ai_display_name: ai?.display_name || 'Unknown AI',
+        ai_color: ai?.color || '#6366f1',
+      };
+    });
+  } catch (e) {
+    console.error('getPicks error:', e);
+    return [];
+  }
+}
+
+/**
+ * Get all picks (no filters)
+ */
+export async function getAllStockPicks(): Promise<StockPick[]> {
+  return getPicks({ limit: 500 });
+}
+
+/**
+ * Get hot/consensus picks (stocks picked by 2+ AIs)
+ */
+export async function getHotPicks(category?: Category): Promise<any[]> {
+  try {
+    const picks = await getPicks({ category, limit: 500 });
+    
+    // Group by ticker
+    const tickerMap = new Map<string, StockPick[]>();
+    picks.forEach(pick => {
+      if (!tickerMap.has(pick.ticker)) {
+        tickerMap.set(pick.ticker, []);
+      }
+      tickerMap.get(pick.ticker)!.push(pick);
+    });
+    
+    // Filter to tickers with 2+ picks and format
+    return Array.from(tickerMap.entries())
+      .filter(([_, p]) => p.length >= 2)
+      .map(([ticker, picks]) => ({
+        ticker,
+        symbol: ticker,
+        company_name: picks[0].company_name,
+        category: picks[0].category,
+        consensus: picks.length,
+        aiNames: picks.map(p => p.ai_display_name),
+        aiColors: picks.map(p => p.ai_color),
+        avgConfidence: Math.round(picks.reduce((s, p) => s + p.confidence, 0) / picks.length),
+        avgEntryPrice: picks.reduce((s, p) => s + p.entry_price, 0) / picks.length,
+        avgTargetPrice: picks.reduce((s, p) => s + p.target_price, 0) / picks.length,
+        currentPrice: picks[0].current_price,
+        direction: picks.filter(p => p.direction === 'UP').length > picks.length / 2 ? 'UP' : 'DOWN',
+        picks,
+      }))
+      .sort((a, b) => b.consensus - a.consensus);
+  } catch (e) {
+    console.error('getHotPicks error:', e);
+    return [];
+  }
+}
+
+/**
+ * Get AI statistics for leaderboard
+ */
+export async function getAIStatistics(category?: Category): Promise<any[]> {
+  try {
+    const [aiModels, picks] = await Promise.all([
+      getAIModels(),
+      getPicks({ category, limit: 1000 })
+    ]);
+    
+    return aiModels.map(ai => {
+      const aiPicks = picks.filter(p => p.ai_model_id === ai.id);
+      const wins = aiPicks.filter(p => p.status === 'won').length;
+      const losses = aiPicks.filter(p => p.status === 'lost').length;
+      const active = aiPicks.filter(p => p.status === 'active').length;
+      const closed = wins + losses;
+      
+      // Calculate total P/L
+      const totalPL = aiPicks.reduce((sum, p) => {
+        if (p.current_price && p.entry_price) {
+          return sum + ((p.current_price - p.entry_price) / p.entry_price) * 100;
+        }
+        return sum;
+      }, 0);
+      
+      return {
+        id: ai.id,
+        name: ai.name,
+        displayName: ai.display_name,
+        color: ai.color,
+        specialty: ai.specialty,
+        tagline: ai.tagline,
+        totalPicks: aiPicks.length,
+        activePicks: active,
+        closedPicks: closed,
+        wins,
+        losses,
+        winRate: closed > 0 ? Math.round((wins / closed) * 100) : 0,
+        avgConfidence: aiPicks.length > 0 
+          ? Math.round(aiPicks.reduce((s, p) => s + p.confidence, 0) / aiPicks.length) 
+          : 0,
+        totalProfitLossPercent: Math.round(totalPL * 10) / 10,
+        points: aiPicks.reduce((s, p) => s + (p.points_earned || 0), 0),
+      };
+    }).sort((a, b) => b.totalProfitLossPercent - a.totalProfitLossPercent);
+  } catch (e) {
+    console.error('getAIStatistics error:', e);
+    return [];
+  }
+}
+
+/**
+ * Get overall statistics
+ */
 export async function getOverallStats(): Promise<{
   totalPicks: number;
   activePicks: number;
-  avgWinRate: number;
-  avgReturn: number;
+  winners: number;
+  losers: number;
+  winRate: number;
+  totalPL: number;
+  avgConfidence: number;
 }> {
-  const picks = await getAllStockPicks();
-  const activePicks = picks.filter(p => p.status === 'active');
-  const closedPicks = picks.filter(p => p.status === 'won' || p.status === 'lost');
-  const wins = picks.filter(p => p.status === 'won');
-
-  return {
-    totalPicks: picks.length,
-    activePicks: activePicks.length,
-    avgWinRate: closedPicks.length > 0 ? (wins.length / closedPicks.length) * 100 : 0,
-    avgReturn: closedPicks.length > 0 
-      ? closedPicks.reduce((sum, p) => sum + (p.actual_return || 0), 0) / closedPicks.length 
-      : 0,
-  };
+  try {
+    const picks = await getPicks({ limit: 1000 });
+    
+    const active = picks.filter(p => p.status === 'active').length;
+    const winners = picks.filter(p => p.status === 'won').length;
+    const losers = picks.filter(p => p.status === 'lost').length;
+    const closed = winners + losers;
+    
+    // Calculate total P/L from all picks with prices
+    let totalPL = 0;
+    let picksWithPrices = 0;
+    picks.forEach(p => {
+      if (p.current_price && p.entry_price) {
+        totalPL += p.current_price - p.entry_price;
+        picksWithPrices++;
+      }
+    });
+    
+    const avgConfidence = picks.length > 0
+      ? Math.round(picks.reduce((s, p) => s + p.confidence, 0) / picks.length)
+      : 0;
+    
+    return {
+      totalPicks: picks.length,
+      activePicks: active,
+      winners,
+      losers,
+      winRate: closed > 0 ? Math.round((winners / closed) * 100) : 0,
+      totalPL: Math.round(totalPL * 100) / 100,
+      avgConfidence,
+    };
+  } catch (e) {
+    console.error('getOverallStats error:', e);
+    return {
+      totalPicks: 0,
+      activePicks: 0,
+      winners: 0,
+      losers: 0,
+      winRate: 0,
+      totalPL: 0,
+      avgConfidence: 0,
+    };
+  }
 }
 
-// Get category stats
+/**
+ * Get category statistics
+ */
 export async function getCategoryStats(): Promise<Record<string, { total: number; active: number; avgChange: number }>> {
-  const picks = await getAllStockPicks();
-  
-  const stats: Record<string, { total: number; active: number; avgChange: number }> = {
-    regular: { total: 0, active: 0, avgChange: 0 },
-    penny: { total: 0, active: 0, avgChange: 0 },
-    crypto: { total: 0, active: 0, avgChange: 0 },
-  };
-
-  for (const pick of picks) {
-    const cat = pick.category || 'regular';
-    if (stats[cat]) {
-      stats[cat].total++;
-      if (pick.status === 'active') stats[cat].active++;
-      if (pick.price_change) stats[cat].avgChange += pick.price_change;
-    }
+  try {
+    const picks = await getPicks({ limit: 1000 });
+    
+    const stats: Record<string, { total: number; active: number; avgChange: number; totalChange: number }> = {
+      regular: { total: 0, active: 0, avgChange: 0, totalChange: 0 },
+      penny: { total: 0, active: 0, avgChange: 0, totalChange: 0 },
+      crypto: { total: 0, active: 0, avgChange: 0, totalChange: 0 },
+    };
+    
+    picks.forEach(p => {
+      if (stats[p.category]) {
+        stats[p.category].total++;
+        if (p.status === 'active') stats[p.category].active++;
+        if (p.price_change_percent) {
+          stats[p.category].totalChange += p.price_change_percent;
+        }
+      }
+    });
+    
+    // Calculate averages
+    Object.keys(stats).forEach(cat => {
+      if (stats[cat].total > 0) {
+        stats[cat].avgChange = Math.round((stats[cat].totalChange / stats[cat].total) * 10) / 10;
+      }
+    });
+    
+    return stats;
+  } catch (e) {
+    console.error('getCategoryStats error:', e);
+    return {};
   }
-
-  for (const cat of Object.keys(stats)) {
-    if (stats[cat].total > 0) {
-      stats[cat].avgChange = stats[cat].avgChange / stats[cat].total;
-    }
-  }
-
-  return stats;
 }
 
-// Get recent winners
+/**
+ * Get recent winners
+ */
 export async function getRecentWinners(limit: number = 5): Promise<StockPick[]> {
-  const { data, error } = await supabase
-    .from('ai_picks')
-    .select('*')
-    .eq('status', 'won')
-    .order('closed_at', { ascending: false })
-    .limit(limit);
-
-  if (error) {
-    console.error('Error fetching recent winners:', error);
+  try {
+    const picks = await getPicks({ limit: 100 });
+    
+    // Find picks where current price > entry price (winners)
+    return picks
+      .filter(p => p.current_price && p.entry_price && p.current_price > p.entry_price)
+      .sort((a, b) => {
+        const aGain = ((a.current_price! - a.entry_price) / a.entry_price) * 100;
+        const bGain = ((b.current_price! - b.entry_price) / b.entry_price) * 100;
+        return bGain - aGain;
+      })
+      .slice(0, limit);
+  } catch (e) {
+    console.error('getRecentWinners error:', e);
     return [];
   }
-  return data || [];
 }
 
-// Aliases for backward compatibility
+// Export legacy functions for backward compatibility
 export const getStockPicks = getPicks;
-export const getStockPicksByAI = (aiName: string) => getPicks({ aiModel: aiName, limit: 100 });
+export const getStockPicksByAI = (aiName: string) => getPicks({ limit: 100 });
 export const getPicksByCategory = (category: Category) => getPicks({ category, limit: 200 });
 export const getLeaderboard = getAIStatistics;
 
+
+// ============================================================================
+// CENTRALIZED AUTH EXPORTS
+// For CR AudioViz AI ecosystem integration
+// ============================================================================
+
+import { createBrowserClient } from '@supabase/ssr';
+
+// Create browser client for auth components
+export function createSupabaseBrowserClient() {
+  return createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://kteobfyferrukqeolofj.supabase.co',
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+  );
+}
+
+// Centralized user type
+export interface CentralUser {
+  id: string;
+  email: string;
+  full_name?: string;
+  avatar_url?: string;
+  credits_balance: number;
+  subscription_tier: 'free' | 'starter' | 'pro' | 'enterprise';
+  created_at: string;
+}
