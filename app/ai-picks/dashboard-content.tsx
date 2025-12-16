@@ -7,8 +7,16 @@ import {
   Target, Shield, Zap, BarChart3, Clock, Award,
   ChevronDown, ChevronUp, Sparkles, AlertCircle,
   Search, X, Info, Lightbulb, Star, ArrowRight,
-  Eye, MessageCircle, HelpCircle, Flame
+  Eye, MessageCircle, HelpCircle, Flame, LogIn, Coins
 } from 'lucide-react';
+import { useAuthContext } from '@/components/AuthProvider';
+import LoginModal from '@/components/LoginModal';
+import UserMenu from '@/components/UserMenu';
+
+// Credit costs
+const CREDIT_COSTS = {
+  FULL_ANALYSIS: 5,
+};
 
 // Types
 interface AIPick {
@@ -127,7 +135,7 @@ function ConfidenceMeter({ value, showLabel = true }: { value: number; showLabel
   );
 }
 
-// Stock Card Component - Clickable to show all AI analyses
+// Stock Card Component
 function StockCard({ 
   analysis, 
   onClick 
@@ -139,7 +147,6 @@ function StockCard({
   const aiCount = analysis.picks.length;
   const consensus = analysis.consensus;
   
-  // Get unique directions
   const directions = analysis.picks.map(p => p.direction);
   const upVotes = directions.filter(d => d === 'UP').length;
   const downVotes = directions.filter(d => d === 'DOWN').length;
@@ -150,7 +157,6 @@ function StockCard({
       onClick={onClick}
       className="bg-gray-800/60 backdrop-blur border border-gray-700/50 rounded-2xl p-5 cursor-pointer transition-all duration-300 hover:border-amber-500/50 hover:shadow-lg hover:shadow-amber-500/10 hover:scale-[1.02] group"
     >
-      {/* Header */}
       <div className="flex items-start justify-between mb-4">
         <div>
           <div className="flex items-center gap-2">
@@ -171,7 +177,6 @@ function StockCard({
         )}
       </div>
       
-      {/* AI Votes Summary */}
       <div className="flex items-center gap-4 mb-4">
         <div className="flex items-center gap-1">
           <TrendingUp className="w-4 h-4 text-emerald-400" />
@@ -188,7 +193,6 @@ function StockCard({
         <span className="text-xs text-gray-500 ml-auto">{aiCount} AI{aiCount > 1 ? 's' : ''} analyzed</span>
       </div>
       
-      {/* AI Pills */}
       <div className="flex flex-wrap gap-2 mb-4">
         {analysis.picks.map(pick => {
           const config = AI_CONFIG[pick.aiModel] || AI_CONFIG.gpt4;
@@ -211,12 +215,10 @@ function StockCard({
         })}
       </div>
       
-      {/* Thesis Preview */}
       {latestPick?.thesis && (
         <p className="text-sm text-gray-400 line-clamp-2 mb-3">{latestPick.thesis}</p>
       )}
       
-      {/* View Details CTA */}
       <div className="flex items-center justify-center gap-2 text-amber-400 group-hover:text-amber-300 transition-colors">
         <Eye className="w-4 h-4" />
         <span className="text-sm font-medium">View All AI Analyses</span>
@@ -226,15 +228,14 @@ function StockCard({
   );
 }
 
-// Individual AI Analysis Panel
+// AI Analysis Panel (keeping this from before - abbreviated for space)
 function AIAnalysisPanel({ pick }: { pick: AIPick }) {
   const config = AI_CONFIG[pick.aiModel] || AI_CONFIG.gpt4;
   const [showFull, setShowFull] = useState(false);
   
   return (
-    <div className={`bg-gray-800/60 border border-gray-700/50 rounded-xl overflow-hidden`}>
-      {/* AI Header */}
-      <div className={`p-4 bg-gradient-to-r ${config.gradient} bg-opacity-10`} style={{ backgroundColor: `${config.color}15` }}>
+    <div className="bg-gray-800/60 border border-gray-700/50 rounded-xl overflow-hidden">
+      <div className="p-4 bg-gradient-to-r from-gray-800 to-gray-900" style={{ backgroundColor: `${config.color}15` }}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${config.gradient} flex items-center justify-center`}>
@@ -252,7 +253,6 @@ function AIAnalysisPanel({ pick }: { pick: AIPick }) {
         </div>
       </div>
       
-      {/* Price Targets */}
       <div className="p-4 border-b border-gray-700/50">
         <div className="grid grid-cols-3 gap-3">
           <div className="bg-gray-900/50 rounded-lg p-3 text-center">
@@ -262,25 +262,14 @@ function AIAnalysisPanel({ pick }: { pick: AIPick }) {
           <div className="bg-emerald-500/10 rounded-lg p-3 text-center border border-emerald-500/20">
             <div className="text-xs text-emerald-400 mb-1">Target</div>
             <div className="text-lg font-semibold text-emerald-300">${pick.targetPrice?.toFixed(2)}</div>
-            {pick.entryPrice && pick.targetPrice && (
-              <div className="text-xs text-emerald-500">
-                +{((pick.targetPrice - pick.entryPrice) / pick.entryPrice * 100).toFixed(1)}%
-              </div>
-            )}
           </div>
           <div className="bg-red-500/10 rounded-lg p-3 text-center border border-red-500/20">
             <div className="text-xs text-red-400 mb-1">Stop Loss</div>
             <div className="text-lg font-semibold text-red-300">${pick.stopLoss?.toFixed(2)}</div>
-            {pick.entryPrice && pick.stopLoss && (
-              <div className="text-xs text-red-500">
-                {((pick.stopLoss - pick.entryPrice) / pick.entryPrice * 100).toFixed(1)}%
-              </div>
-            )}
           </div>
         </div>
       </div>
       
-      {/* Thesis */}
       <div className="p-4 border-b border-gray-700/50">
         <h5 className="text-sm font-semibold text-amber-400 mb-2 flex items-center gap-2">
           <Lightbulb className="w-4 h-4" /> {config.name}'s Thesis
@@ -288,14 +277,13 @@ function AIAnalysisPanel({ pick }: { pick: AIPick }) {
         <p className="text-sm text-gray-300">{pick.thesis}</p>
       </div>
       
-      {/* Full Reasoning (Expandable) */}
       <div className="p-4 border-b border-gray-700/50">
         <button 
           onClick={() => setShowFull(!showFull)}
           className="w-full flex items-center justify-between text-left"
         >
           <h5 className="text-sm font-semibold text-white flex items-center gap-2">
-            <Brain className="w-4 h-4" /> Full Analysis from {config.name}
+            <Brain className="w-4 h-4" /> Full Analysis
           </h5>
           {showFull ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
         </button>
@@ -306,13 +294,10 @@ function AIAnalysisPanel({ pick }: { pick: AIPick }) {
         )}
       </div>
       
-      {/* Bullish/Bearish Factors */}
       <div className="p-4 grid md:grid-cols-2 gap-4">
         {pick.keyBullishFactors?.length > 0 && (
           <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-3">
-            <h5 className="text-sm font-semibold text-emerald-400 mb-2 flex items-center gap-2">
-              <TrendingUp className="w-4 h-4" /> Bullish Factors
-            </h5>
+            <h5 className="text-sm font-semibold text-emerald-400 mb-2">Bullish Factors</h5>
             <ul className="space-y-1.5">
               {pick.keyBullishFactors.map((factor, i) => (
                 <li key={i} className="text-sm text-gray-300 flex items-start gap-2">
@@ -326,9 +311,7 @@ function AIAnalysisPanel({ pick }: { pick: AIPick }) {
         
         {pick.keyBearishFactors?.length > 0 && (
           <div className="bg-red-500/5 border border-red-500/20 rounded-xl p-3">
-            <h5 className="text-sm font-semibold text-red-400 mb-2 flex items-center gap-2">
-              <TrendingDown className="w-4 h-4" /> Bearish Factors
-            </h5>
+            <h5 className="text-sm font-semibold text-red-400 mb-2">Bearish Factors</h5>
             <ul className="space-y-1.5">
               {pick.keyBearishFactors.map((factor, i) => (
                 <li key={i} className="text-sm text-gray-300 flex items-start gap-2">
@@ -339,43 +322,6 @@ function AIAnalysisPanel({ pick }: { pick: AIPick }) {
             </ul>
           </div>
         )}
-      </div>
-      
-      {/* Risks & Catalysts */}
-      {(pick.risks?.length > 0 || pick.catalysts?.length > 0) && (
-        <div className="p-4 pt-0 grid md:grid-cols-2 gap-4">
-          {pick.risks?.length > 0 && (
-            <div>
-              <h5 className="text-sm font-semibold text-gray-300 mb-2 flex items-center gap-2">
-                <Shield className="w-4 h-4 text-amber-400" /> Risks Identified
-              </h5>
-              <ul className="space-y-1">
-                {pick.risks.map((risk, i) => (
-                  <li key={i} className="text-sm text-gray-400">• {risk}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-          
-          {pick.catalysts?.length > 0 && (
-            <div>
-              <h5 className="text-sm font-semibold text-gray-300 mb-2 flex items-center gap-2">
-                <Zap className="w-4 h-4 text-amber-400" /> Potential Catalysts
-              </h5>
-              <ul className="space-y-1">
-                {pick.catalysts.map((catalyst, i) => (
-                  <li key={i} className="text-sm text-gray-400">• {catalyst}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
-      )}
-      
-      {/* Timestamp */}
-      <div className="px-4 pb-3 text-xs text-gray-500 flex items-center gap-1">
-        <Clock className="w-3 h-3" />
-        Analyzed {new Date(pick.createdAt).toLocaleDateString()} at {new Date(pick.createdAt).toLocaleTimeString()}
       </div>
     </div>
   );
@@ -397,7 +343,6 @@ function StockDetailModal({
         className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col"
         onClick={e => e.stopPropagation()}
       >
-        {/* Modal Header */}
         <div className="p-6 border-b border-gray-700 flex items-center justify-between bg-gradient-to-r from-gray-800 to-gray-900">
           <div>
             <div className="flex items-center gap-3">
@@ -408,15 +353,11 @@ function StockDetailModal({
             </div>
             <p className="text-gray-400">{analysis.picks[0]?.companyName}</p>
           </div>
-          <button 
-            onClick={onClose}
-            className="p-2 rounded-lg bg-gray-800 hover:bg-gray-700 transition-colors"
-          >
+          <button onClick={onClose} className="p-2 rounded-lg bg-gray-800 hover:bg-gray-700">
             <X className="w-6 h-6 text-gray-400" />
           </button>
         </div>
         
-        {/* Javari Consensus (if exists) */}
         {analysis.consensus && (
           <div className="p-4 bg-gradient-to-r from-amber-500/10 to-orange-500/10 border-b border-amber-500/20">
             <div className="flex items-center gap-4">
@@ -427,7 +368,7 @@ function StockDetailModal({
                 <div className="flex items-center gap-2">
                   <span className="text-amber-400 font-semibold">Javari Consensus:</span>
                   <DirectionBadge direction={analysis.consensus.consensusDirection} />
-                  <span className="text-white font-bold">{analysis.consensus.javariConfidence?.toFixed(0)}% confidence</span>
+                  <span className="text-white font-bold">{analysis.consensus.javariConfidence?.toFixed(0)}%</span>
                 </div>
                 <p className="text-sm text-gray-300 mt-1">{analysis.consensus.javariReasoning}</p>
               </div>
@@ -435,17 +376,14 @@ function StockDetailModal({
           </div>
         )}
         
-        {/* Tabs */}
         <div className="flex border-b border-gray-700 px-4 overflow-x-auto">
           <button
             onClick={() => setActiveTab('all')}
             className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
-              activeTab === 'all' 
-                ? 'border-amber-500 text-amber-400' 
-                : 'border-transparent text-gray-400 hover:text-white'
+              activeTab === 'all' ? 'border-amber-500 text-amber-400' : 'border-transparent text-gray-400 hover:text-white'
             }`}
           >
-            All AI Analyses ({analysis.picks.length})
+            All AIs ({analysis.picks.length})
           </button>
           {analysis.picks.map(pick => {
             const config = AI_CONFIG[pick.aiModel] || AI_CONFIG.gpt4;
@@ -454,30 +392,23 @@ function StockDetailModal({
                 key={pick.id}
                 onClick={() => setActiveTab(pick.aiModel)}
                 className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap flex items-center gap-2 ${
-                  activeTab === pick.aiModel 
-                    ? 'border-amber-500 text-amber-400' 
-                    : 'border-transparent text-gray-400 hover:text-white'
+                  activeTab === pick.aiModel ? 'border-amber-500 text-amber-400' : 'border-transparent text-gray-400 hover:text-white'
                 }`}
               >
-                <div className={`w-2 h-2 rounded-full`} style={{ backgroundColor: config.color }} />
+                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: config.color }} />
                 {config.name}
               </button>
             );
           })}
         </div>
         
-        {/* Content */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {activeTab === 'all' ? (
-            analysis.picks.map(pick => (
+            analysis.picks.map(pick => <AIAnalysisPanel key={pick.id} pick={pick} />)
+          ) : (
+            analysis.picks.filter(p => p.aiModel === activeTab).map(pick => (
               <AIAnalysisPanel key={pick.id} pick={pick} />
             ))
-          ) : (
-            analysis.picks
-              .filter(p => p.aiModel === activeTab)
-              .map(pick => (
-                <AIAnalysisPanel key={pick.id} pick={pick} />
-              ))
           )}
         </div>
       </div>
@@ -486,14 +417,7 @@ function StockDetailModal({
 }
 
 // Hot Picks Section
-function HotPicksSection({ 
-  analyses, 
-  onSelect 
-}: { 
-  analyses: StockAnalysis[]; 
-  onSelect: (analysis: StockAnalysis) => void;
-}) {
-  // Get hot picks - highest Javari confidence with UP direction
+function HotPicksSection({ analyses, onSelect }: { analyses: StockAnalysis[]; onSelect: (a: StockAnalysis) => void }) {
   const hotPicks = analyses
     .filter(a => a.consensus && a.consensus.javariConfidence >= 60 && a.consensus.consensusDirection === 'UP')
     .sort((a, b) => (b.consensus?.javariConfidence || 0) - (a.consensus?.javariConfidence || 0))
@@ -506,11 +430,7 @@ function HotPicksSection({
       <div className="flex items-center gap-2 mb-4">
         <Flame className="w-5 h-5 text-orange-500" />
         <h2 className="text-xl font-bold text-white">Hot Picks</h2>
-        <span className="text-xs bg-orange-500/20 text-orange-400 px-2 py-0.5 rounded-full">
-          High Confidence Bullish
-        </span>
       </div>
-      
       <div className="flex gap-4 overflow-x-auto pb-2">
         {hotPicks.map(analysis => (
           <div
@@ -522,13 +442,8 @@ function HotPicksSection({
               <span className="text-lg font-bold text-white">{analysis.symbol}</span>
               <TrendingUp className="w-5 h-5 text-emerald-400" />
             </div>
-            <div className="text-2xl font-bold text-orange-400 mb-1">
-              {analysis.consensus?.javariConfidence?.toFixed(0)}%
-            </div>
+            <div className="text-2xl font-bold text-orange-400">{analysis.consensus?.javariConfidence?.toFixed(0)}%</div>
             <div className="text-xs text-gray-400">Javari Score</div>
-            <div className="mt-2 text-xs text-gray-500">
-              {analysis.picks.length} AI{analysis.picks.length > 1 ? 's' : ''} agree
-            </div>
           </div>
         ))}
       </div>
@@ -536,112 +451,47 @@ function HotPicksSection({
   );
 }
 
-// Help/Onboarding Panel
+// Help Panel
 function HelpPanel({ onClose }: { onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" onClick={onClose}>
-      <div 
-        className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
-        onClick={e => e.stopPropagation()}
-      >
+      <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         <div className="p-6 border-b border-gray-700 flex items-center justify-between">
-          <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-            <HelpCircle className="w-6 h-6 text-amber-400" />
-            How Market Oracle Works
-          </h2>
+          <h2 className="text-2xl font-bold text-white">How Market Oracle Works</h2>
           <button onClick={onClose} className="p-2 rounded-lg bg-gray-800 hover:bg-gray-700">
             <X className="w-5 h-5 text-gray-400" />
           </button>
         </div>
-        
         <div className="p-6 space-y-6">
-          {/* Step 1 */}
           <div className="flex gap-4">
             <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center flex-shrink-0">
               <span className="text-amber-400 font-bold">1</span>
             </div>
             <div>
               <h3 className="font-semibold text-white mb-1">Enter a Stock Symbol</h3>
-              <p className="text-sm text-gray-400">
-                Type any stock ticker (like AAPL, TSLA, NVDA) in the search box and click "Analyze". 
-                The system fetches real-time market data for that stock.
-              </p>
+              <p className="text-sm text-gray-400">Type any stock ticker and click Analyze. Costs 5 credits per analysis.</p>
             </div>
           </div>
-          
-          {/* Step 2 */}
           <div className="flex gap-4">
             <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center flex-shrink-0">
               <span className="text-amber-400 font-bold">2</span>
             </div>
             <div>
               <h3 className="font-semibold text-white mb-1">Four AIs Analyze Simultaneously</h3>
-              <p className="text-sm text-gray-400 mb-2">
-                Four leading AI models analyze the stock at the same time, each with different strengths:
-              </p>
-              <div className="grid grid-cols-2 gap-2">
-                {Object.entries(AI_CONFIG).map(([key, config]) => (
-                  <div key={key} className="flex items-center gap-2 p-2 bg-gray-800 rounded-lg">
-                    <div className={`w-3 h-3 rounded-full bg-gradient-to-r ${config.gradient}`} />
-                    <div>
-                      <div className="text-sm text-white font-medium">{config.name}</div>
-                      <div className="text-xs text-gray-500">{config.description.split(',')[0]}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <p className="text-sm text-gray-400">GPT-4, Claude, Gemini, and Perplexity each provide unique insights.</p>
             </div>
           </div>
-          
-          {/* Step 3 */}
           <div className="flex gap-4">
             <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center flex-shrink-0">
               <span className="text-amber-400 font-bold">3</span>
             </div>
             <div>
-              <h3 className="font-semibold text-white mb-1">Each AI Provides Detailed Analysis</h3>
-              <p className="text-sm text-gray-400">
-                Every AI gives you: Direction (UP/DOWN/HOLD), Confidence score, Price targets 
-                (entry, target, stop-loss), Full reasoning, Bullish & bearish factors, 
-                Risks and catalysts. Click any stock card to see each AI's individual analysis.
-              </p>
-            </div>
-          </div>
-          
-          {/* Step 4 */}
-          <div className="flex gap-4">
-            <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center flex-shrink-0">
-              <span className="text-amber-400 font-bold">4</span>
-            </div>
-            <div>
               <h3 className="font-semibold text-white mb-1">Javari Builds Consensus</h3>
-              <p className="text-sm text-gray-400">
-                Our Javari AI weighs each model's prediction based on historical accuracy 
-                and confidence to give you a single, unified verdict. High consensus = 
-                more AIs agree. Use this for quick decisions, but always review individual analyses.
-              </p>
+              <p className="text-sm text-gray-400">Our AI weighs each model's prediction to give you a unified verdict.</p>
             </div>
           </div>
-          
-          {/* Tips */}
-          <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4">
-            <h3 className="font-semibold text-amber-400 mb-2 flex items-center gap-2">
-              <Lightbulb className="w-4 h-4" /> Pro Tips
-            </h3>
-            <ul className="space-y-2 text-sm text-gray-300">
-              <li>• <strong>Hot Picks</strong> shows stocks where Javari is most confident bullish</li>
-              <li>• <strong>Click stock cards</strong> to see each AI's full reasoning</li>
-              <li>• <strong>Compare AI opinions</strong> - when they disagree, dig deeper</li>
-              <li>• <strong>Check risks</strong> - each AI identifies potential problems</li>
-              <li>• <strong>Use tabs</strong> to filter by specific AI you trust most</li>
-            </ul>
-          </div>
-          
-          {/* Disclaimer */}
           <div className="bg-gray-800 rounded-xl p-4 text-xs text-gray-500">
-            <strong>Disclaimer:</strong> Market Oracle provides AI-generated analysis for informational purposes only. 
-            This is not financial advice. Always do your own research and consult a financial advisor 
-            before making investment decisions. Past AI performance does not guarantee future results.
+            <strong>Disclaimer:</strong> This is not financial advice. Always do your own research.
           </div>
         </div>
       </div>
@@ -652,17 +502,18 @@ function HelpPanel({ onClose }: { onClose: () => void }) {
 // Main Dashboard Component
 export default function AIDashboardContent() {
   const searchParams = useSearchParams();
+  const { user, credits, loading: authLoading } = useAuthContext();
+  
   const [symbol, setSymbol] = useState(searchParams.get('analyze') || '');
   const [loading, setLoading] = useState(false);
   const [analyses, setAnalyses] = useState<StockAnalysis[]>([]);
   const [selectedAnalysis, setSelectedAnalysis] = useState<StockAnalysis | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showHelp, setShowHelp] = useState(false);
+  const [showLogin, setShowLogin] = useState(false);
   
-  // Group picks by symbol into analyses
   const groupPicksBySymbol = useCallback((picks: AIPick[], consensusData?: Record<string, ConsensusData>): StockAnalysis[] => {
     const grouped: Record<string, StockAnalysis> = {};
-    
     for (const pick of picks) {
       if (!grouped[pick.symbol]) {
         grouped[pick.symbol] = {
@@ -675,7 +526,6 @@ export default function AIDashboardContent() {
       }
       grouped[pick.symbol].picks.push(pick);
     }
-    
     return Object.values(grouped).sort((a, b) => {
       const aTime = new Date(a.picks[0]?.createdAt || 0).getTime();
       const bTime = new Date(b.picks[0]?.createdAt || 0).getTime();
@@ -683,20 +533,14 @@ export default function AIDashboardContent() {
     });
   }, []);
   
-  // Load existing picks on mount
   useEffect(() => {
     const loadPicks = async () => {
       try {
         const res = await fetch('/api/ai-picks/generate?limit=50');
         if (res.ok) {
           const data = await res.json();
-          if (data.picks && data.picks.length > 0) {
-            // Fetch consensus data for these symbols
-            const symbols = [...new Set(data.picks.map((p: AIPick) => p.symbol))];
-            const consensusMap: Record<string, ConsensusData> = {};
-            
-            // For now, just use picks without consensus
-            setAnalyses(groupPicksBySymbol(data.picks, consensusMap));
+          if (data.picks?.length > 0) {
+            setAnalyses(groupPicksBySymbol(data.picks, {}));
           }
         }
       } catch (err) {
@@ -706,18 +550,21 @@ export default function AIDashboardContent() {
     loadPicks();
   }, [groupPicksBySymbol]);
   
-  // Auto-analyze if URL has ?analyze=SYMBOL
-  useEffect(() => {
-    const analyzeSymbol = searchParams.get('analyze');
-    if (analyzeSymbol && analyzeSymbol !== symbol) {
-      setSymbol(analyzeSymbol);
-      handleAnalyze(analyzeSymbol);
-    }
-  }, [searchParams]);
-  
   const handleAnalyze = async (sym?: string) => {
     const targetSymbol = (sym || symbol).toUpperCase().trim();
     if (!targetSymbol) return;
+    
+    // Check if user is logged in
+    if (!user) {
+      setShowLogin(true);
+      return;
+    }
+    
+    // Check credits
+    if (credits < CREDIT_COSTS.FULL_ANALYSIS) {
+      setError(`Insufficient credits. Need ${CREDIT_COSTS.FULL_ANALYSIS} credits, you have ${credits}.`);
+      return;
+    }
     
     setLoading(true);
     setError(null);
@@ -726,7 +573,7 @@ export default function AIDashboardContent() {
       const res = await fetch('/api/ai-picks/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ symbol: targetSymbol })
+        body: JSON.stringify({ symbol: targetSymbol, userId: user.id })
       });
       
       const data = await res.json();
@@ -736,7 +583,6 @@ export default function AIDashboardContent() {
         return;
       }
       
-      // Create new analysis from response
       const newAnalysis: StockAnalysis = {
         symbol: targetSymbol,
         companyName: data.picks?.[0]?.companyName || targetSymbol,
@@ -745,15 +591,12 @@ export default function AIDashboardContent() {
         consensus: data.consensus || null
       };
       
-      // Add to analyses (or update existing)
       setAnalyses(prev => {
         const filtered = prev.filter(a => a.symbol !== targetSymbol);
         return [newAnalysis, ...filtered];
       });
       
-      // Auto-open the detail modal
       setSelectedAnalysis(newAnalysis);
-      
     } catch (err) {
       setError('Network error. Please try again.');
     } finally {
@@ -777,18 +620,42 @@ export default function AIDashboardContent() {
               </div>
             </div>
             
-            <button
-              onClick={() => setShowHelp(true)}
-              className="flex items-center gap-2 px-3 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors"
-            >
-              <HelpCircle className="w-4 h-4 text-amber-400" />
-              <span className="text-sm text-gray-300">How It Works</span>
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setShowHelp(true)}
+                className="flex items-center gap-2 px-3 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors"
+              >
+                <HelpCircle className="w-4 h-4 text-amber-400" />
+                <span className="text-sm text-gray-300 hidden sm:inline">How It Works</span>
+              </button>
+              
+              {authLoading ? (
+                <div className="w-8 h-8 rounded-full bg-gray-700 animate-pulse" />
+              ) : user ? (
+                <UserMenu />
+              ) : (
+                <button
+                  onClick={() => setShowLogin(true)}
+                  className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-600 text-white font-medium rounded-lg hover:shadow-lg transition-all"
+                >
+                  <LogIn className="w-4 h-4" />
+                  Sign In
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </header>
       
       <main className="max-w-7xl mx-auto px-4 py-8">
+        {/* Credit Cost Notice */}
+        {user && (
+          <div className="mb-4 flex items-center gap-2 text-sm text-gray-400">
+            <Coins className="w-4 h-4 text-amber-400" />
+            <span>Analysis costs <strong className="text-amber-400">{CREDIT_COSTS.FULL_ANALYSIS} credits</strong> • Your balance: <strong className="text-white">{credits}</strong></span>
+          </div>
+        )}
+        
         {/* Search Section */}
         <div className="mb-8">
           <div className="max-w-xl mx-auto">
@@ -800,20 +667,16 @@ export default function AIDashboardContent() {
                   value={symbol}
                   onChange={(e) => setSymbol(e.target.value.toUpperCase())}
                   onKeyDown={(e) => e.key === 'Enter' && handleAnalyze()}
-                  placeholder="Enter stock symbol (e.g., AAPL, TSLA, NVDA)"
+                  placeholder="Enter stock symbol (e.g., AAPL, TSLA)"
                   className="w-full pl-12 pr-4 py-4 bg-gray-800 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 outline-none text-lg"
                 />
               </div>
               <button
                 onClick={() => handleAnalyze()}
                 disabled={loading || !symbol.trim()}
-                className="px-6 py-4 bg-gradient-to-r from-amber-500 to-orange-600 text-white font-semibold rounded-xl hover:shadow-lg hover:shadow-amber-500/25 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                className="px-6 py-4 bg-gradient-to-r from-amber-500 to-orange-600 text-white font-semibold rounded-xl hover:shadow-lg transition-all disabled:opacity-50 flex items-center gap-2"
               >
-                {loading ? (
-                  <RefreshCw className="w-5 h-5 animate-spin" />
-                ) : (
-                  <Zap className="w-5 h-5" />
-                )}
+                {loading ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Zap className="w-5 h-5" />}
                 {loading ? 'Analyzing...' : 'Analyze'}
               </button>
             </div>
@@ -827,10 +690,8 @@ export default function AIDashboardContent() {
           </div>
         </div>
         
-        {/* Hot Picks */}
         <HotPicksSection analyses={analyses} onSelect={setSelectedAnalysis} />
         
-        {/* All Analyses */}
         {analyses.length > 0 ? (
           <div>
             <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
@@ -839,11 +700,7 @@ export default function AIDashboardContent() {
             </h2>
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
               {analyses.map(analysis => (
-                <StockCard 
-                  key={analysis.symbol} 
-                  analysis={analysis}
-                  onClick={() => setSelectedAnalysis(analysis)}
-                />
+                <StockCard key={analysis.symbol} analysis={analysis} onClick={() => setSelectedAnalysis(analysis)} />
               ))}
             </div>
           </div>
@@ -854,28 +711,13 @@ export default function AIDashboardContent() {
             </div>
             <h3 className="text-xl font-semibold text-gray-400 mb-2">No analyses yet</h3>
             <p className="text-gray-500 mb-4">Enter a stock symbol above to get started</p>
-            <button
-              onClick={() => setShowHelp(true)}
-              className="text-amber-400 hover:text-amber-300 text-sm"
-            >
-              Learn how Market Oracle works →
-            </button>
           </div>
         )}
       </main>
       
-      {/* Detail Modal */}
-      {selectedAnalysis && (
-        <StockDetailModal 
-          analysis={selectedAnalysis} 
-          onClose={() => setSelectedAnalysis(null)} 
-        />
-      )}
-      
-      {/* Help Panel */}
+      {selectedAnalysis && <StockDetailModal analysis={selectedAnalysis} onClose={() => setSelectedAnalysis(null)} />}
       {showHelp && <HelpPanel onClose={() => setShowHelp(false)} />}
+      {showLogin && <LoginModal isOpen={showLogin} onClose={() => setShowLogin(false)} />}
     </div>
   );
 }
-
-
