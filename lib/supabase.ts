@@ -41,6 +41,7 @@ export interface StockPick {
   stop_loss: number;
   current_price?: number;
   price_change?: number;
+  price_change_percent?: number;
   thesis: string;
   full_reasoning: string;
   factor_assessments?: any[];
@@ -280,3 +281,4 @@ export const getStockPicks = getPicks;
 export const getStockPicksByAI = (aiName: string) => getPicks({ aiModel: aiName, limit: 100 });
 export const getPicksByCategory = (category: Category) => getPicks({ category, limit: 200 });
 export const getLeaderboard = getAIStatistics;
+
