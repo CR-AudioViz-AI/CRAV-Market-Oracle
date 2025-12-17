@@ -154,6 +154,7 @@ export interface StockPick {
   priceChangePercent?: number;
   // AI display name shortcut
   ai_display_name: string;
+  ai_color: string;
 }
 
 export interface AIStatistics {
@@ -348,7 +349,8 @@ function normalizePick(pick: any): StockPick {
     price_change_percent: pick.price_change_percent || pick.priceChangePercent,
     priceChangePercent: pick.price_change_percent || pick.priceChangePercent,
     // AI display name shortcut
-    ai_display_name: aiDisplayName
+    ai_display_name: aiDisplayName,
+    ai_color: aiModel?.color || "#6366f1"
   };
 }
 
