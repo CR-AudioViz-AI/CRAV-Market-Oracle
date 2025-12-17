@@ -65,7 +65,7 @@ export interface StockPick {
   id: string;
   // AI Model references
   aiModelId: string;
-  ai_model_id?: string;
+  ai_model_id: string;
   aiModel?: AIModel;
   ai_model?: AIModel;
   // Symbol/Ticker - BOTH names supported
@@ -73,18 +73,18 @@ export interface StockPick {
   ticker: string; // alias for symbol
   // Company info
   companyName: string;
-  company_name?: string;
+  company_name: string;
   sector: string;
   // Direction & Confidence
   direction: 'UP' | 'DOWN' | 'HOLD';
   confidence: number;
   // Price fields - both camelCase and snake_case
   entryPrice: number;
-  entry_price?: number;
+  entry_price: number;
   targetPrice: number;
-  target_price?: number;
+  target_price: number;
   stopLoss: number;
-  stop_loss?: number;
+  stop_loss: number;
   // Additional details
   timeframe: string;
   thesis: string;
@@ -104,9 +104,9 @@ export interface StockPick {
   closedAt?: string;
   closed_at?: string;
   createdAt: string;
-  created_at?: string;
+  created_at: string;
   updatedAt: string;
-  updated_at?: string;
+  updated_at: string;
   // Price tracking
   current_price?: number;
   currentPrice?: number;
