@@ -1,21 +1,34 @@
 import { NextResponse } from "next/server";
-import { getPicks, getAIModels, getAIStatistics, getHotPicks, getOverallStats, getRecentWinners } from "@/lib/supabase";
+import { getPicks, getAIModels, getAIStatistics, getHotPicks, getOverallStats, getRecentWinners, type AssetType } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
+// Map category param to AssetType
+function mapCategoryToAssetType(category: string): AssetType | undefined {
+  const mapping: Record<string, AssetType> = {
+    'regular': 'stock',
+    'stock': 'stock',
+    'penny': 'penny_stock',
+    'penny_stock': 'penny_stock',
+    'crypto': 'crypto'
+  };
+  return mapping[category];
+}
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const category = searchParams.get("category") || "all";
+  const assetType = category === "all" ? undefined : mapCategoryToAssetType(category);
   
   try {
     const [picksData, modelsData, statsData, hotData, overallData, winnersData] = await Promise.all([
-      getPicks({ category: category === "all" ? undefined : category as "regular" | "penny" | "crypto", limit: 500 }),
+      getPicks({ assetType, limit: 500 }),
       getAIModels(),
-      getAIStatistics(category === "all" ? undefined : category as "regular" | "penny" | "crypto"),
-      getHotPicks(category === "all" ? undefined : category as "regular" | "penny" | "crypto"),
+      getAIStatistics(assetType),
+      getHotPicks(10, assetType),
       getOverallStats(),
-      getRecentWinners(5),
+      getRecentWinners(5, assetType),
     ]);
     
     return NextResponse.json({
