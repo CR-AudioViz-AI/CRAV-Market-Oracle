@@ -70,7 +70,7 @@ export interface StockPick {
   ai_model?: AIModel;
   // Symbol/Ticker - BOTH names supported
   symbol: string;
-  ticker?: string; // alias for symbol
+  ticker: string; // alias for symbol
   // Company info
   companyName: string;
   company_name?: string;
