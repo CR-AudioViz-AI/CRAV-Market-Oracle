@@ -29,12 +29,12 @@ export default function ChartsPage() {
   }
 
   const aiStats = picks.reduce((acc: any, pick) => {
-    if (!acc[pick.ai_name]) {
-      acc[pick.ai_name] = { total: 0, avgConfidence: 0, picks: [] }
+    if (!acc[pick.ai_display_name || "Unknown"]) {
+      acc[pick.ai_display_name || "Unknown"] = { total: 0, avgConfidence: 0, picks: [] }
     }
-    acc[pick.ai_name].total++
-    acc[pick.ai_name].avgConfidence += pick.confidence
-    acc[pick.ai_name].picks.push(pick)
+    acc[pick.ai_display_name || "Unknown"].total++
+    acc[pick.ai_display_name || "Unknown"].avgConfidence += pick.confidence
+    acc[pick.ai_display_name || "Unknown"].picks.push(pick)
     return acc
   }, {})
 
@@ -136,4 +136,5 @@ export default function ChartsPage() {
     </div>
   )
 }
+
 
