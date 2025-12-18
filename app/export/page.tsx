@@ -75,7 +75,7 @@ export default function ExportPage() {
     if (selectedAI && pick.ai_model_id !== selectedAI) return false;
     
     // Category filter
-    if (selectedCategory && pick.category !== selectedCategory) return false;
+    if (selectedCategory && pick.asset_type !== selectedCategory) return false;
     
     return true;
   });
@@ -87,7 +87,7 @@ export default function ExportPage() {
         ticker: pick.ticker,
         company: pick.company_name || '',
         ai_model: pick.ai_display_name || '',
-        category: pick.category,
+        asset_type: pick.asset_type,
         direction: pick.direction,
         confidence: pick.confidence,
         entry_price: pick.entry_price,
@@ -400,4 +400,5 @@ export default function ExportPage() {
     </div>
   );
 }
+
 
