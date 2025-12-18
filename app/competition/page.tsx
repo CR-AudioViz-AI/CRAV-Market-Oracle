@@ -97,7 +97,7 @@ export default function CompetitionPage() {
             <p className="text-xl text-gray-400 max-w-2xl mx-auto">
               Watch AI models battle across Stocks, Penny Stocks, and Crypto
             </p>
-            <JavariHelpButton className="mt-4" />
+            <JavariHelpButton topic="AI Competition" className="mt-4" />
           </div>
           
           {/* Overall Stats Banner */}
@@ -418,3 +418,4 @@ function LeaderboardCard({
     </div>
   );
 }
+
