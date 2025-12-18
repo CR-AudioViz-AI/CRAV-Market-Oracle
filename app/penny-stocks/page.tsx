@@ -98,7 +98,7 @@ export default function PennyStocksPage() {
               </h1>
               <p className="text-gray-400">High-risk, high-reward picks under $5</p>
             </div>
-            <JavariHelpButton className="ml-auto" />
+            <JavariHelpButton topic="Penny Stocks" className="ml-auto" />
           </div>
           
           {/* Quick Stats */}
@@ -357,3 +357,4 @@ function PickCard({ pick }: { pick: StockPick }) {
     </div>
   );
 }
+
