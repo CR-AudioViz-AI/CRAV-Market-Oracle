@@ -66,7 +66,7 @@ export default function ExportPage() {
       if (range?.days) {
         const cutoff = new Date();
         cutoff.setDate(cutoff.getDate() - range.days);
-        const pickDate = new Date(pick.pick_date || pick.created_at);
+        const pickDate = new Date(pick.created_at);
         if (pickDate < cutoff) return false;
       }
     }
@@ -96,7 +96,7 @@ export default function ExportPage() {
         stop_loss: pick.stop_loss,
         change_percent: pick.price_change_percent?.toFixed(2) || '',
         status: pick.status,
-        pick_date: pick.pick_date || pick.created_at,
+        pick_date: pick.created_at,
       };
       
       if (includeReasoning) {
@@ -400,3 +400,4 @@ export default function ExportPage() {
     </div>
   );
 }
+
