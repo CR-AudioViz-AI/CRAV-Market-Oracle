@@ -100,13 +100,13 @@ export default function ExportPage() {
       };
       
       if (includeReasoning) {
-        base.reasoning = pick.reasoning_summary || pick.reasoning || '';
+        base.reasoning = (pick as any).reasoning_summary || pick.reasoning || '';
       }
       
       if (includeMetrics) {
-        base.profit_loss_percent = pick.profit_loss_percent || '';
-        base.points_earned = pick.points_earned || '';
-        base.result = pick.result || '';
+        base.profit_loss_percent = (pick as any).profit_loss_percent || '';
+        base.points_earned = (pick as any).points_earned || '';
+        base.result = (pick as any).result || '';
       }
       
       return base;
