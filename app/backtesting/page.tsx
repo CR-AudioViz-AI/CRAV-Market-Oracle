@@ -18,9 +18,9 @@ export default function BacktestingPage() {
       // Group by AI
       const aiStats = new Map()
       picks.forEach(pick => {
-        if (!aiStats.has(pick.ai_name)) {
-          aiStats.set(pick.ai_name, {
-            aiName: pick.ai_name,
+        if (!aiStats.has(pick.ai_display_name)) {
+          aiStats.set(pick.ai_display_name, {
+            aiName: pick.ai_display_name,
             totalPicks: 0,
             wins: 0,
             losses: 0,
@@ -31,7 +31,7 @@ export default function BacktestingPage() {
           })
         }
         
-        const stats = aiStats.get(pick.ai_name)
+        const stats = aiStats.get(pick.ai_display_name)
         stats.totalPicks++
         
         // Simulate results (in real app, use actual price data)
@@ -210,3 +210,4 @@ export default function BacktestingPage() {
     </div>
   )
 }
+
