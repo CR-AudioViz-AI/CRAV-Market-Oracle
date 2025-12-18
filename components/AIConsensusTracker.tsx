@@ -30,7 +30,7 @@ export function AIConsensusTracker() {
       const consensusData = Array.from(symbolMap.entries())
         .map(([symbol, picks]: [string, any]) => {
           const aiCount = picks.length
-          const avgConfidence = picks.reduce((sum: number, p: any) => sum + p.confidence_score, 0) / picks.length
+          const avgConfidence = picks.reduce((sum: number, p: any) => sum + p.confidence, 0) / picks.length
           const avgGain = picks.reduce((sum: number, p: any) => 
             sum + calculateGainPercentage(p.entry_price, p.target_price), 0) / picks.length
           
@@ -143,3 +143,4 @@ export function AIConsensusTracker() {
     </div>
   )
 }
+
