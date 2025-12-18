@@ -43,7 +43,7 @@ export default function InsightsPage() {
     }
 
     if (selectedAI !== 'all') {
-      filtered = filtered.filter(p => p.ai_name?.toLowerCase() === selectedAI)
+      filtered = filtered.filter(p => p.ai_display_name?.toLowerCase() === selectedAI)
     }
 
     if (sortBy === 'date') {
@@ -61,7 +61,7 @@ export default function InsightsPage() {
     const csv = [
       ['AI', 'Symbol', 'Entry', 'Target', 'Confidence', 'Date', 'Reasoning'].join(','),
       ...filteredPicks.map(p => [
-        p.ai_name,
+        p.ai_display_name,
         p.symbol,
         (p.entry_price || 0),
         (p.target_price || 0),
@@ -83,7 +83,7 @@ export default function InsightsPage() {
     return <div className="flex items-center justify-center min-h-[400px]"><div className="spinner"></div></div>
   }
 
-  const uniqueAIs = Array.from(new Set(picks.map(p => p.ai_name).filter(Boolean))) as string[]
+  const uniqueAIs = Array.from(new Set(picks.map(p => p.ai_display_name).filter(Boolean))) as string[]
 
   return (
     <div className="space-y-8">
@@ -162,7 +162,7 @@ export default function InsightsPage() {
             </thead>
             <tbody>
               {filteredPicks.map(pick => {
-                const colors = getAIColor(pick.ai_name || 'Unknown')
+                const colors = getAIColor(pick.ai_display_name || 'Unknown')
                 const gain = calculateGainPercentage(((pick.entry_price || 0) || 0), ((pick.target_price || 0) || 0))
                 
                 return (
@@ -170,7 +170,7 @@ export default function InsightsPage() {
                     <td className="p-4">
                       <div className="flex items-center gap-2">
                         <div className="w-3 h-3 rounded-full" style={{ background: `linear-gradient(135deg, ${colors.primary}, ${colors.secondary})` }}></div>
-                        <span className="font-semibold">{pick.ai_name}</span>
+                        <span className="font-semibold">{pick.ai_display_name}</span>
                       </div>
                     </td>
                     <td className="p-4 font-bold">{pick.symbol}</td>
