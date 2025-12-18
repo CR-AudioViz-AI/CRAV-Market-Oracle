@@ -42,8 +42,8 @@ export function StockScreener() {
 
     // Confidence filter
     result = result.filter(p => 
-      p.confidence_score >= filters.minConfidence && 
-      p.confidence_score <= filters.maxConfidence
+      p.confidence >= filters.minConfidence && 
+      p.confidence <= filters.maxConfidence
     )
 
     // Price filter
@@ -170,7 +170,7 @@ export function StockScreener() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-400">Confidence:</span>
-                  <span className="font-bold">{pick.confidence_score}%</span>
+                  <span className="font-bold">{pick.confidence}%</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-400">Entry:</span>
@@ -188,3 +188,4 @@ export function StockScreener() {
     </div>
   )
 }
+
