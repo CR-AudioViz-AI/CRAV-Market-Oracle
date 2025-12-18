@@ -36,7 +36,7 @@ export default function BacktestingPage() {
         
         // Simulate results (in real app, use actual price data)
         const gain = ((pick.target_price - pick.entry_price) / pick.entry_price) * 100
-        const simResult = gain * (pick.confidence_score / 100) * (Math.random() * 0.5 + 0.75)
+        const simResult = gain * (pick.confidence / 100) * (Math.random() * 0.5 + 0.75)
         
         if (simResult > 0) stats.wins++
         else stats.losses++
