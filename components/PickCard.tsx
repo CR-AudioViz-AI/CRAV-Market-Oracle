@@ -66,7 +66,7 @@ export function PickCard({
           <PriceBox label="Entry" value={pick.entry_price} variant="neutral" />
           <PriceBox 
             label="Current" 
-            value={pick.current_price} 
+            value={pick.current_price ?? null} 
             variant={isUp ? 'up' : 'down'} 
             showTrend={true}
             isUp={isUp}
@@ -112,7 +112,7 @@ export function PickCard({
         <PriceBox label="Entry" value={pick.entry_price} variant="neutral" size="md" />
         <PriceBox 
           label="Current" 
-          value={pick.current_price} 
+          value={pick.current_price ?? null} 
           variant={isUp ? 'up' : 'down'} 
           showTrend={true}
           isUp={isUp}
@@ -261,3 +261,4 @@ export function PickCardMini({ pick }: { pick: StockPick }) {
 }
 
 export default PickCard;
+
