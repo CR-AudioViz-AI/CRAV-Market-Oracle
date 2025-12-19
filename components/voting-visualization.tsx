@@ -70,7 +70,7 @@ export default function VotingVisualization({ pickId, ticker }: VotingVisualizat
           
           setVoteData({
             ticker: data.ticker,
-            ai_name: data.ai_name,
+            ai_name: data.ai_display_name,
             upvotes,
             downvotes,
             total_votes: total,
@@ -97,7 +97,7 @@ export default function VotingVisualization({ pickId, ticker }: VotingVisualizat
         
         return {
           ticker: pick.ticker,
-          ai_name: pick.ai_name,
+          ai_name: pick.ai_display_name,
           upvotes,
           downvotes,
           total_votes: total,
@@ -159,7 +159,7 @@ export default function VotingVisualization({ pickId, ticker }: VotingVisualizat
                 Community Sentiment: {voteData.ticker}
               </CardTitle>
               <CardDescription>
-                {voteData.ai_name}'s pick • {voteData.total_votes.toLocaleString()} total votes
+                {voteData.ai_display_name}'s pick • {voteData.total_votes.toLocaleString()} total votes
               </CardDescription>
             </div>
             <Button
@@ -295,7 +295,7 @@ export default function VotingVisualization({ pickId, ticker }: VotingVisualizat
                   return (
                     <div className="bg-white p-4 border rounded-lg shadow-lg">
                       <p className="font-bold">{data.ticker}</p>
-                      <p className="text-sm text-gray-600">{data.ai_name}</p>
+                      <p className="text-sm text-gray-600">{data.ai_display_name}</p>
                       <div className="mt-2 space-y-1">
                         <p className="text-sm">
                           <span className="text-green-600">👍 {data.upvotes}</span>
@@ -335,7 +335,7 @@ export default function VotingVisualization({ pickId, ticker }: VotingVisualizat
                 <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                   <div>
                     <p className="font-semibold">{vote.ticker}</p>
-                    <p className="text-sm text-gray-600">{vote.ai_name}</p>
+                    <p className="text-sm text-gray-600">{vote.ai_display_name}</p>
                   </div>
                   <div className="text-right">
                     <Badge style={{ backgroundColor: getSentimentColor(vote.approval_rating) }}>
@@ -351,3 +351,4 @@ export default function VotingVisualization({ pickId, ticker }: VotingVisualizat
     </Card>
   );
 }
+
