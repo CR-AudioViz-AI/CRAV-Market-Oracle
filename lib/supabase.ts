@@ -162,7 +162,7 @@ export async function getPicks(filters?: { aiModelId?: string; symbol?: string; 
   } catch (e) { console.error('Error in getPicks:', e); return []; }
 }
 
-export async function getStockPicks(filters?: { aiModelId?: string; status?: string; limit?: number }): Promise<StockPick[]> { return getPicks({ ...filters, assetType: 'stock' }); }
+export async function getStockPicks(filters?: { aiModelId?: string; status?: string; limit?: number }): Promise<StockPick[]> { return getPicks({ ...filters, assetType: 'stock' as AssetType }); }
 export async function getPennyStockPicks(filters?: { aiModelId?: string; status?: string; limit?: number }): Promise<StockPick[]> { return getPicks({ ...filters, assetType: 'penny_stock' }); }
 export async function getCryptoPicks(filters?: { aiModelId?: string; status?: string; limit?: number }): Promise<StockPick[]> { return getPicks({ ...filters, assetType: 'crypto' }); }
 export async function getAllStockPicks(): Promise<StockPick[]> { return getPicks(); }
@@ -223,7 +223,7 @@ export async function searchStocks(query: string): Promise<StockInfo[]> {
   if (!query || query.length < 1) return [];
   const upper = query.toUpperCase(), lower = query.toLowerCase();
   try { const { data } = await supabase.from('stocks').select('symbol, name, exchange, sector, industry').or(`symbol.ilike.%${upper}%,name.ilike.%${lower}%`).limit(20); if (data?.length) return data; } catch (e) {}
-  return [{ symbol: 'AAPL', name: 'Apple Inc.', exchange: 'NASDAQ', sector: 'Technology', assetType: 'stock' }, { symbol: 'MSFT', name: 'Microsoft', exchange: 'NASDAQ', sector: 'Technology', assetType: 'stock' }, { symbol: 'NVDA', name: 'NVIDIA', exchange: 'NASDAQ', sector: 'Technology', assetType: 'stock' }].filter(s => s.symbol.includes(upper) || s.name.toLowerCase().includes(lower));
+  return [{ symbol: 'AAPL', name: 'Apple Inc.', exchange: 'NASDAQ', sector: 'Technology', assetType: 'stock' as AssetType }, { symbol: 'MSFT', name: 'Microsoft', exchange: 'NASDAQ', sector: 'Technology', assetType: 'stock' as AssetType }, { symbol: 'NVDA', name: 'NVIDIA', exchange: 'NASDAQ', sector: 'Technology', assetType: 'stock' as AssetType }].filter(s => s.symbol.includes(upper) || s.name.toLowerCase().includes(lower));
 }
 
 export async function searchCrypto(query: string): Promise<CryptoInfo[]> {
@@ -250,3 +250,4 @@ export async function savePick(pick: Partial<StockPick>): Promise<StockPick | nu
     return data ? normalizePick(data) : null;
   } catch (e) { console.error('Error in savePick:', e); return null; }
 }
+
