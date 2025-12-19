@@ -163,7 +163,7 @@ export async function getPicks(filters?: { aiModelId?: string; symbol?: string; 
 }
 
 export async function getStockPicks(filters?: { aiModelId?: string; status?: string; limit?: number }): Promise<StockPick[]> { return getPicks({ ...filters, assetType: 'stock' as AssetType }); }
-export async function getPennyStockPicks(filters?: { aiModelId?: string; status?: string; limit?: number }): Promise<StockPick[]> { return getPicks({ ...filters, assetType: 'penny_stock' }); }
+export async function getPennyStockPicks(filters?: { aiModelId?: string; status?: string; limit?: number }): Promise<StockPick[]> { return getPicks({ ...filters, assetType: 'penny_stock' as AssetType }); }
 export async function getCryptoPicks(filters?: { aiModelId?: string; status?: string; limit?: number }): Promise<StockPick[]> { return getPicks({ ...filters, assetType: 'crypto' }); }
 export async function getAllStockPicks(): Promise<StockPick[]> { return getPicks(); }
 
@@ -235,7 +235,7 @@ export async function searchCrypto(query: string): Promise<CryptoInfo[]> {
 export async function searchPennyStocks(query: string): Promise<StockInfo[]> {
   if (!query || query.length < 1) return [];
   const upper = query.toUpperCase(), lower = query.toLowerCase();
-  return [{ symbol: 'SNDL', name: 'Sundial Growers', exchange: 'NASDAQ', sector: 'Healthcare', assetType: 'penny_stock' }].filter(s => s.symbol.includes(upper) || s.name.toLowerCase().includes(lower));
+  return [{ symbol: 'SNDL', name: 'Sundial Growers', exchange: 'NASDAQ', sector: 'Healthcare', assetType: 'penny_stock' as AssetType }].filter(s => s.symbol.includes(upper) || s.name.toLowerCase().includes(lower));
 }
 
 export async function getHotPicks(limit: number = 10, assetType?: AssetType): Promise<StockPick[]> { return getPicks({ status: 'active', limit, assetType }); }
@@ -250,4 +250,5 @@ export async function savePick(pick: Partial<StockPick>): Promise<StockPick | nu
     return data ? normalizePick(data) : null;
   } catch (e) { console.error('Error in savePick:', e); return null; }
 }
+
 
