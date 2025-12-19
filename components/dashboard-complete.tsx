@@ -260,8 +260,8 @@ export default function DashboardComplete() {
                     const data = payload[0].payload;
                     return (
                       <div className="bg-white p-4 border rounded-lg shadow-lg">
-                        <p className="font-bold" style={{ color: getAIColor(data.ai_display_name) }}>
-                          {data.ai_display_name}
+                        <p className="font-bold" style={{ color: getAIColor(data.ai_name) }}>
+                          {data.ai_name}
                         </p>
                         <p className="text-sm">Avg Return: {data.average_return.toFixed(2)}%</p>
                         <p className="text-sm">Win Rate: {data.win_rate.toFixed(1)}%</p>
@@ -303,7 +303,7 @@ export default function DashboardComplete() {
                     const data = payload[0].payload;
                     return (
                       <div className="bg-white p-3 border rounded-lg shadow-lg">
-                        <p className="font-bold">{data.ai_display_name}</p>
+                        <p className="font-bold">{data.ai_name}</p>
                         <p className="text-sm">Win Rate: {data.win_rate.toFixed(1)}%</p>
                         <p className="text-sm text-green-600">Winners: {data.winning_picks}</p>
                         <p className="text-sm text-red-600">Losers: {data.losing_picks}</p>
@@ -341,11 +341,11 @@ export default function DashboardComplete() {
               </thead>
               <tbody>
                 {aiPerformance.map((ai) => (
-                  <tr key={ai.ai_display_name} className="border-b hover:bg-gray-50">
+                  <tr key={ai.ai_name} className="border-b hover:bg-gray-50">
                     <td className="py-3 px-4">{getRankBadge(ai.rank)}</td>
                     <td className="py-3 px-4">
-                      <span className="font-semibold" style={{ color: getAIColor(ai.ai_display_name) }}>
-                        {ai.ai_display_name}
+                      <span className="font-semibold" style={{ color: getAIColor(ai.ai_name) }}>
+                        {ai.ai_name}
                       </span>
                     </td>
                     <td className={`text-right py-3 px-4 font-bold ${ai.average_return >= 0 ? 'text-green-600' : 'text-red-600'}`}>
@@ -376,14 +376,14 @@ export default function DashboardComplete() {
               <div key={activity.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full flex items-center justify-center" 
-                       style={{ backgroundColor: getAIColor(activity.ai_display_name) + '20' }}>
-                    <span className="font-bold text-sm" style={{ color: getAIColor(activity.ai_display_name) }}>
-                      {activity.ai_display_name.substring(0, 2)}
+                       style={{ backgroundColor: getAIColor(activity.ai_name) + '20' }}>
+                    <span className="font-bold text-sm" style={{ color: getAIColor(activity.ai_name) }}>
+                      {activity.ai_name.substring(0, 2)}
                     </span>
                   </div>
                   <div>
                     <p className="font-semibold">{activity.ticker}</p>
-                    <p className="text-sm text-gray-600">{activity.ai_display_name} picked at ${activity.price.toFixed(2)}</p>
+                    <p className="text-sm text-gray-600">{activity.ai_name} picked at ${activity.price.toFixed(2)}</p>
                   </div>
                 </div>
                 <div className="text-right">
@@ -409,5 +409,6 @@ export default function DashboardComplete() {
     </div>
   );
 }
+
 
 
