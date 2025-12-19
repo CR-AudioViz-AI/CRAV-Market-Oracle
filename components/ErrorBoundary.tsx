@@ -41,9 +41,7 @@ export class ErrorBoundary extends Component<Props, State> {
   };
 
   handleAskJavari = () => {
-    triggerJavariHelp({ 
-      topic: 'error help',
-    });
+    triggerJavariHelp('error help');
   };
 
   render() {
@@ -165,7 +163,7 @@ export function ErrorFallback({
               </button>
             )}
             <button
-              onClick={() => triggerJavariHelp({ topic: 'error help' })}
+              onClick={() => triggerJavariHelp('error help')}
               className="text-sm text-gray-400 hover:text-white flex items-center gap-1"
             >
               <MessageCircle className="w-3 h-3" />
