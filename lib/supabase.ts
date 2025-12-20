@@ -83,7 +83,7 @@ export interface AIStatistics {
 
 export interface OverallStats {
   totalPicks: number; activePicks: number; closedPicks: number;
-  winRate: number; avgConfidence: number;
+  winRate: number; overallWinRate?: number; avgConfidence: number;
   totalProfitLoss: number; topAI: string;
   bestPick: StockPick | null; worstPick: StockPick | null;
 }
@@ -316,9 +316,10 @@ export async function getOverallStats(): Promise<OverallStats> {
   const stats = await getAIStatistics();
   const topAIModel = stats.length > 0 ? stats[0] : null;
   const sortedByReturn = [...closedPicks].sort((a, b) => ((b.actualReturn || b.actual_return) || 0) - ((a.actualReturn || a.actual_return) || 0));
+  const winRateValue = closedPicks.length > 0 ? (winningPicks.length / closedPicks.length) * 100 : 0;
   return {
     totalPicks: allPicks.length, activePicks: activePicks.length, closedPicks: closedPicks.length,
-    winRate: closedPicks.length > 0 ? (winningPicks.length / closedPicks.length) * 100 : 0,
+    winRate: winRateValue, overallWinRate: winRateValue,
     avgConfidence: Math.round(avgConfidence), totalProfitLoss: totalReturn,
     topAI: topAIModel?.displayName || 'N/A',
     bestPick: sortedByReturn[0] || null, worstPick: sortedByReturn[sortedByReturn.length - 1] || null
