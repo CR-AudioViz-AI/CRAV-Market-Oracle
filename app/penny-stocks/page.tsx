@@ -291,7 +291,7 @@ function PickCard({ pick }: { pick: StockPick }) {
             className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold"
             style={{ backgroundColor: aiModel?.color + '20', color: aiModel?.color }}
           >
-            {aiModel?.displayName?.slice(0, 2) || 'AI'}
+            {aiModel?.name?.slice(0, 2) || 'AI'}
           </div>
           <div>
             <div className="font-bold text-lg">{pick.ticker}</div>
