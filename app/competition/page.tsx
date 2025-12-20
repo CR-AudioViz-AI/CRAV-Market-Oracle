@@ -108,7 +108,7 @@ export default function CompetitionPage() {
                 <div className="text-sm text-gray-400">Total Picks</div>
               </div>
               <div className="bg-gray-900/50 backdrop-blur border border-green-500/20 rounded-xl p-4 text-center">
-                <div className="text-3xl font-bold text-green-400">{overallStats.overallWinRate.toFixed(1)}%</div>
+                <div className="text-3xl font-bold text-green-400">{overallStats.winRate.toFixed(1)}%</div>
                 <div className="text-sm text-gray-400">Overall Win Rate</div>
               </div>
               <div className="bg-gray-900/50 backdrop-blur border border-yellow-500/20 rounded-xl p-4 text-center">
@@ -418,4 +418,3 @@ function LeaderboardCard({
     </div>
   );
 }
-
