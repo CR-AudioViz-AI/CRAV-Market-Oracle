@@ -1,7 +1,7 @@
 // lib/supabase.ts
 // CR AudioViz AI - Market Oracle Database & Price Functions
-// TIMESTAMP: 2025-12-20 08:35 EST
-// FIX: Added missing exports - supabase, getCompetitionLeaderboard, getRecentWinners, createSupabaseBrowserClient
+// TIMESTAMP: 2025-12-20 20:05 EST
+// FIX: Added totalPoints, stockPoints, pennyStockPoints, cryptoPoints to CompetitionLeaderboard
 
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 
@@ -88,7 +88,7 @@ export interface OverallStats {
   bestPick: StockPick | null; worstPick: StockPick | null;
 }
 
-// Competition Leaderboard Interface
+// Competition Leaderboard Interface - FIXED with point properties
 export interface CompetitionLeaderboard {
   rank: number;
   aiModelId: string;
@@ -104,6 +104,11 @@ export interface CompetitionLeaderboard {
   streak: number;
   streakType: 'winning' | 'losing' | 'none';
   badges: string[];
+  // Point-based scoring for competition page
+  totalPoints: number;
+  stockPoints: number;
+  pennyStockPoints: number;
+  cryptoPoints: number;
 }
 
 // Recent Winner Interface
@@ -326,42 +331,101 @@ export async function getOverallStats(): Promise<OverallStats> {
   };
 }
 
-// NEW FUNCTION: Get Competition Leaderboard
+// Calculate points for a set of picks (10 points per win, -5 per loss)
+function calculatePoints(picks: StockPick[]): number {
+  return picks.reduce((total, pick) => {
+    const ret = (pick.actualReturn || pick.actual_return) || 0;
+    if (ret > 0) return total + 10 + ret; // Win: base 10 + return percentage
+    if (ret < 0) return total - 5;         // Loss: -5
+    return total;                          // No change for 0 return
+  }, 0);
+}
+
+// FIXED FUNCTION: Get Competition Leaderboard with point calculations
 export async function getCompetitionLeaderboard(assetType?: AssetType): Promise<CompetitionLeaderboard[]> {
-  const stats = await getAIStatistics(assetType);
+  const models = await getAIModels();
+  const allClosedPicks = await getPicks({ status: 'closed' });
   
-  return stats.map((stat, index) => {
-    // Determine badges based on performance
+  return models.map((model, index) => {
+    const modelPicks = allClosedPicks.filter(p => (p.aiModelId || p.ai_model_id) === model.id);
+    
+    // Calculate points by asset type
+    const stockPicks = modelPicks.filter(p => (p.assetType || p.asset_type) === 'stock');
+    const pennyStockPicks = modelPicks.filter(p => (p.assetType || p.asset_type) === 'penny_stock');
+    const cryptoPicks = modelPicks.filter(p => (p.assetType || p.asset_type) === 'crypto');
+    
+    const stockPoints = calculatePoints(stockPicks);
+    const pennyStockPoints = calculatePoints(pennyStockPicks);
+    const cryptoPoints = calculatePoints(cryptoPicks);
+    const totalPoints = stockPoints + pennyStockPoints + cryptoPoints;
+    
+    // Calculate stats
+    const winningPicks = modelPicks.filter(p => ((p.actualReturn || p.actual_return) || 0) > 0);
+    const losingPicks = modelPicks.filter(p => ((p.actualReturn || p.actual_return) || 0) < 0);
+    const totalReturn = modelPicks.reduce((sum, p) => sum + ((p.actualReturn || p.actual_return) || 0), 0);
+    const avgReturn = modelPicks.length > 0 ? totalReturn / modelPicks.length : 0;
+    const winRate = modelPicks.length > 0 ? (winningPicks.length / modelPicks.length) * 100 : 0;
+    
+    // Calculate streak
+    let streak = 0, streakType: 'winning' | 'losing' | 'none' = 'none';
+    const sortedPicks = [...modelPicks].sort((a, b) => 
+      new Date(b.closedAt || b.closed_at || '').getTime() - new Date(a.closedAt || a.closed_at || '').getTime()
+    );
+    for (const pick of sortedPicks) {
+      const isWin = ((pick.actualReturn || pick.actual_return) || 0) > 0;
+      if (streak === 0) { streakType = isWin ? 'winning' : 'losing'; streak = 1; }
+      else if ((isWin && streakType === 'winning') || (!isWin && streakType === 'losing')) streak++;
+      else break;
+    }
+    
+    // Find best pick
+    const sortedByReturn = [...modelPicks].sort((a, b) => 
+      ((b.actualReturn || b.actual_return) || 0) - ((a.actualReturn || a.actual_return) || 0)
+    );
+    const bestPick = sortedByReturn[0];
+    
+    // Determine badges
     const badges: string[] = [];
-    if (index === 0) badges.push('🏆 Champion');
-    if (stat.winRate >= 70) badges.push('🎯 Sharpshooter');
-    if (stat.recentStreak >= 5) badges.push('🔥 On Fire');
-    if (stat.avgReturn >= 10) badges.push('💰 Big Winner');
-    if (stat.totalPicks >= 50) badges.push('📊 Veteran');
+    if (winRate >= 70) badges.push('🎯 Sharpshooter');
+    if (streak >= 5) badges.push('🔥 On Fire');
+    if (avgReturn >= 10) badges.push('💰 Big Winner');
+    if (modelPicks.length >= 50) badges.push('📊 Veteran');
     
     return {
-      rank: index + 1,
-      aiModelId: stat.aiModelId,
-      displayName: stat.displayName,
-      color: stat.color,
-      totalPicks: stat.totalPicks,
-      wins: stat.winningPicks,
-      losses: stat.losingPicks,
-      winRate: stat.winRate,
-      totalReturn: stat.totalProfitLossPercent,
-      avgReturn: stat.avgReturn,
-      bestPick: stat.bestPick ? { 
-        symbol: stat.bestPick.symbol, 
-        return: stat.bestPick.actualReturn || stat.bestPick.actual_return || 0 
+      rank: index + 1, // Will be recalculated after sorting
+      aiModelId: model.id,
+      displayName: model.displayName || model.display_name || model.name,
+      color: model.color,
+      totalPicks: modelPicks.length,
+      wins: winningPicks.length,
+      losses: losingPicks.length,
+      winRate,
+      totalReturn,
+      avgReturn,
+      bestPick: bestPick ? { 
+        symbol: bestPick.symbol, 
+        return: bestPick.actualReturn || bestPick.actual_return || 0 
       } : undefined,
-      streak: stat.recentStreak,
-      streakType: stat.streakType,
-      badges
+      streak,
+      streakType,
+      badges,
+      totalPoints,
+      stockPoints,
+      pennyStockPoints,
+      cryptoPoints
     };
+  })
+  .sort((a, b) => b.totalPoints - a.totalPoints) // Sort by total points
+  .map((entry, index) => {
+    // Add champion badge to winner and fix ranks
+    if (index === 0 && !entry.badges.includes('🏆 Champion')) {
+      entry.badges.unshift('🏆 Champion');
+    }
+    return { ...entry, rank: index + 1 };
   });
 }
 
-// NEW FUNCTION: Get Recent Winners (closed picks with positive returns)
+// Get Recent Winners (closed picks with positive returns)
 export async function getRecentWinners(limit: number = 10, assetType?: AssetType): Promise<RecentWinner[]> {
   try {
     let query = supabase
@@ -370,7 +434,6 @@ export async function getRecentWinners(limit: number = 10, assetType?: AssetType
       .eq('status', 'closed')
       .gt('actual_return', 0);
     
-    // Filter by asset type if provided
     if (assetType) {
       query = query.eq('asset_type', assetType);
     }
