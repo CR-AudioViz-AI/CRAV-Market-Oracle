@@ -280,7 +280,7 @@ export default function CryptoPage() {
 function CryptoPickCard({ pick }: { pick: StockPick }) {
   const priceChange = pick.price_change_percent || 0;
   const isUp = priceChange >= 0;
-  const aiModel = AI_MODELS.find(m => m.id === pick.ai_model_id);
+  const aiModel = Object.values(AI_MODELS).find(m => m.id === pick.ai_model_id);
   
   // Crypto icons mapping
   const getCryptoIcon = (symbol: string) => {
