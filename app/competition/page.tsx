@@ -112,7 +112,7 @@ export default function CompetitionPage() {
                 <div className="text-sm text-gray-400">Overall Win Rate</div>
               </div>
               <div className="bg-gray-900/50 backdrop-blur border border-yellow-500/20 rounded-xl p-4 text-center">
-                <div className="text-3xl font-bold text-yellow-400">{overallStats.bestAI}</div>
+                <div className="text-3xl font-bold text-yellow-400">{overallStats.topAI}</div>
                 <div className="text-sm text-gray-400">Top Performer</div>
               </div>
               <div className="bg-gray-900/50 backdrop-blur border border-purple-500/20 rounded-xl p-4 text-center">
