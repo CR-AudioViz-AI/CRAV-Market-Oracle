@@ -280,7 +280,7 @@ export default function PennyStocksPage() {
 function PickCard({ pick }: { pick: StockPick }) {
   const priceChange = pick.price_change_percent || 0;
   const isUp = priceChange >= 0;
-  const aiModel = AI_MODELS.find(m => m.id === pick.ai_model_id);
+  const aiModel = Object.values(AI_MODELS).find(m => m.id === pick.ai_model_id);
   
   return (
     <div className="bg-gray-900/50 backdrop-blur border border-gray-700/50 rounded-xl p-4 hover:border-yellow-500/30 transition-all">
