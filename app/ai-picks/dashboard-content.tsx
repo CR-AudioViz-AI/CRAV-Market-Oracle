@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useEffect, useState, useCallback, useRef } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { 
   Brain, TrendingUp, TrendingDown, Minus, RefreshCw, 
   Target, Shield, Zap, BarChart3, Clock, Award,
@@ -17,6 +17,71 @@ import UserMenu from '@/components/UserMenu';
 const CREDIT_COSTS = {
   FULL_ANALYSIS: 5,
 };
+
+// Stock database for symbol lookup (same as landing page)
+const STOCK_DATABASE = [
+  // Popular Stocks
+  { symbol: 'AAPL', name: 'Apple Inc.' },
+  { symbol: 'MSFT', name: 'Microsoft Corporation' },
+  { symbol: 'GOOGL', name: 'Alphabet Inc. (Google)' },
+  { symbol: 'GOOG', name: 'Alphabet Inc. Class C' },
+  { symbol: 'AMZN', name: 'Amazon.com Inc.' },
+  { symbol: 'NVDA', name: 'NVIDIA Corporation' },
+  { symbol: 'TSLA', name: 'Tesla Inc.' },
+  { symbol: 'META', name: 'Meta Platforms Inc.' },
+  { symbol: 'JPM', name: 'JPMorgan Chase & Co.' },
+  { symbol: 'V', name: 'Visa Inc.' },
+  { symbol: 'JNJ', name: 'Johnson & Johnson' },
+  { symbol: 'WMT', name: 'Walmart Inc.' },
+  { symbol: 'PG', name: 'Procter & Gamble Co.' },
+  { symbol: 'MA', name: 'Mastercard Inc.' },
+  { symbol: 'UNH', name: 'UnitedHealth Group' },
+  { symbol: 'HD', name: 'Home Depot Inc.' },
+  { symbol: 'DIS', name: 'Walt Disney Co.' },
+  { symbol: 'BAC', name: 'Bank of America' },
+  { symbol: 'NFLX', name: 'Netflix Inc.' },
+  { symbol: 'AMD', name: 'Advanced Micro Devices' },
+  { symbol: 'INTC', name: 'Intel Corporation' },
+  { symbol: 'CRM', name: 'Salesforce Inc.' },
+  { symbol: 'COST', name: 'Costco Wholesale' },
+  { symbol: 'PEP', name: 'PepsiCo Inc.' },
+  { symbol: 'KO', name: 'Coca-Cola Co.' },
+  { symbol: 'ABBV', name: 'AbbVie Inc.' },
+  { symbol: 'MRK', name: 'Merck & Co.' },
+  { symbol: 'CSCO', name: 'Cisco Systems' },
+  { symbol: 'AVGO', name: 'Broadcom Inc.' },
+  { symbol: 'ORCL', name: 'Oracle Corporation' },
+  // Banks
+  { symbol: 'FITB', name: 'Fifth Third Bancorp' },
+  { symbol: 'WFC', name: 'Wells Fargo & Co.' },
+  { symbol: 'C', name: 'Citigroup Inc.' },
+  { symbol: 'GS', name: 'Goldman Sachs' },
+  { symbol: 'MS', name: 'Morgan Stanley' },
+  { symbol: 'USB', name: 'U.S. Bancorp' },
+  { symbol: 'PNC', name: 'PNC Financial Services' },
+  { symbol: 'TFC', name: 'Truist Financial' },
+  { symbol: 'SCHW', name: 'Charles Schwab' },
+  // Penny Stocks
+  { symbol: 'SNDL', name: 'Sundial Growers Inc.' },
+  { symbol: 'MULN', name: 'Mullen Automotive' },
+  { symbol: 'FFIE', name: 'Faraday Future' },
+  { symbol: 'CLOV', name: 'Clover Health' },
+  { symbol: 'WISH', name: 'ContextLogic Inc.' },
+  { symbol: 'SOFI', name: 'SoFi Technologies' },
+  { symbol: 'PLTR', name: 'Palantir Technologies' },
+  { symbol: 'NIO', name: 'NIO Inc.' },
+  // Crypto
+  { symbol: 'BTC', name: 'Bitcoin' },
+  { symbol: 'ETH', name: 'Ethereum' },
+  { symbol: 'SOL', name: 'Solana' },
+  { symbol: 'XRP', name: 'Ripple' },
+  { symbol: 'ADA', name: 'Cardano' },
+  { symbol: 'DOGE', name: 'Dogecoin' },
+  { symbol: 'DOT', name: 'Polkadot' },
+  { symbol: 'AVAX', name: 'Avalanche' },
+  { symbol: 'LINK', name: 'Chainlink' },
+  { symbol: 'MATIC', name: 'Polygon' },
+];
 
 // Types
 interface AIPick {
@@ -95,6 +160,31 @@ const AI_CONFIG: Record<string, { color: string; gradient: string; name: string;
     description: 'Technical patterns and price target focus'
   },
 };
+
+// Helper: Resolve company name or search term to symbol
+function resolveToSymbol(query: string): string {
+  const q = query.toUpperCase().trim();
+  
+  // If it's already a known symbol, return it
+  const exactSymbol = STOCK_DATABASE.find(s => s.symbol === q);
+  if (exactSymbol) return exactSymbol.symbol;
+  
+  // Search by company name
+  const byName = STOCK_DATABASE.find(s => 
+    s.name.toUpperCase().includes(q) || q.includes(s.name.toUpperCase())
+  );
+  if (byName) return byName.symbol;
+  
+  // Partial match on name words
+  const words = q.split(/\s+/);
+  const partial = STOCK_DATABASE.find(s => 
+    words.every(w => s.name.toUpperCase().includes(w))
+  );
+  if (partial) return partial.symbol;
+  
+  // Return as-is (might be a valid symbol we don't have in our database)
+  return q;
+}
 
 // Direction Badge Component
 function DirectionBadge({ direction, size = 'md' }: { direction: string; size?: 'sm' | 'md' | 'lg' }) {
@@ -199,14 +289,12 @@ function StockCard({
           return (
             <div 
               key={pick.id}
-              className={`flex items-center gap-1.5 px-2 py-1 rounded-lg bg-gradient-to-r ${config.gradient} bg-opacity-20`}
-              style={{ backgroundColor: `${config.color}20` }}
+              className={`px-2.5 py-1 rounded-full text-xs font-medium bg-gradient-to-r ${config.gradient} text-white flex items-center gap-1.5`}
             >
-              <Brain className="w-3 h-3" style={{ color: config.color }} />
-              <span className="text-xs font-medium text-white">{config.name}</span>
-              <span className={`text-xs ${
-                pick.direction === 'UP' ? 'text-emerald-400' : 
-                pick.direction === 'DOWN' ? 'text-red-400' : 'text-amber-400'
+              <span>{config.name}</span>
+              <span className={`px-1.5 py-0.5 rounded text-[10px] ${
+                pick.direction === 'UP' ? 'bg-emerald-500/30' :
+                pick.direction === 'DOWN' ? 'bg-red-500/30' : 'bg-amber-500/30'
               }`}>
                 {pick.direction}
               </span>
@@ -215,173 +303,183 @@ function StockCard({
         })}
       </div>
       
-      {latestPick?.thesis && (
-        <p className="text-sm text-gray-400 line-clamp-2 mb-3">{latestPick.thesis}</p>
-      )}
+      <p className="text-sm text-gray-400 line-clamp-2">{latestPick?.thesis}</p>
       
-      <div className="flex items-center justify-center gap-2 text-amber-400 group-hover:text-amber-300 transition-colors">
-        <Eye className="w-4 h-4" />
-        <span className="text-sm font-medium">View All AI Analyses</span>
-        <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+      <div className="mt-4 pt-4 border-t border-gray-700/50 flex items-center justify-between">
+        <span className="text-xs text-gray-500">
+          {latestPick?.createdAt ? new Date(latestPick.createdAt).toLocaleDateString() : ''}
+        </span>
+        <button className="text-xs text-amber-400 flex items-center gap-1 hover:text-amber-300">
+          <Eye className="w-3 h-3" />
+          View All AI Analyses
+          <ArrowRight className="w-3 h-3" />
+        </button>
       </div>
     </div>
   );
 }
 
-// AI Analysis Panel (keeping this from before - abbreviated for space)
+// AI Analysis Panel Component
 function AIAnalysisPanel({ pick }: { pick: AIPick }) {
+  const [expanded, setExpanded] = useState(false);
   const config = AI_CONFIG[pick.aiModel] || AI_CONFIG.gpt4;
-  const [showFull, setShowFull] = useState(false);
   
   return (
-    <div className="bg-gray-800/60 border border-gray-700/50 rounded-xl overflow-hidden">
-      <div className="p-4 bg-gradient-to-r from-gray-800 to-gray-900" style={{ backgroundColor: `${config.color}15` }}>
+    <div className={`bg-gray-800/50 border border-gray-700/50 rounded-xl overflow-hidden`}>
+      <div 
+        className={`p-4 cursor-pointer bg-gradient-to-r ${config.gradient} bg-opacity-10`}
+        onClick={() => setExpanded(!expanded)}
+      >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${config.gradient} flex items-center justify-center`}>
+            <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${config.gradient} flex items-center justify-center`}>
               <Brain className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h4 className="font-bold text-white">{config.name}</h4>
+              <h4 className="font-semibold text-white">{config.name}</h4>
               <p className="text-xs text-gray-400">{config.description}</p>
             </div>
           </div>
-          <div className="text-right">
+          <div className="flex items-center gap-4">
             <DirectionBadge direction={pick.direction} />
-            <div className="mt-1 text-lg font-bold text-white">{pick.confidence}%</div>
+            <div className="text-right">
+              <div className="text-lg font-bold text-white">{pick.confidence.toFixed(0)}%</div>
+              <div className="text-xs text-gray-400">Confidence</div>
+            </div>
+            {expanded ? <ChevronUp className="w-5 h-5 text-gray-400" /> : <ChevronDown className="w-5 h-5 text-gray-400" />}
           </div>
         </div>
       </div>
       
-      <div className="p-4 border-b border-gray-700/50">
-        <div className="grid grid-cols-3 gap-3">
-          <div className="bg-gray-900/50 rounded-lg p-3 text-center">
-            <div className="text-xs text-gray-500 mb-1">Entry</div>
-            <div className="text-lg font-semibold text-gray-300">${pick.entryPrice?.toFixed(2)}</div>
+      {expanded && (
+        <div className="p-4 space-y-4 border-t border-gray-700/50">
+          <div>
+            <h5 className="text-sm font-semibold text-gray-300 mb-2 flex items-center gap-2">
+              <Lightbulb className="w-4 h-4 text-amber-400" />
+              Thesis
+            </h5>
+            <p className="text-sm text-gray-400">{pick.thesis}</p>
           </div>
-          <div className="bg-emerald-500/10 rounded-lg p-3 text-center border border-emerald-500/20">
-            <div className="text-xs text-emerald-400 mb-1">Target</div>
-            <div className="text-lg font-semibold text-emerald-300">${pick.targetPrice?.toFixed(2)}</div>
+          
+          <div className="grid grid-cols-3 gap-4 text-center">
+            <div className="bg-gray-700/30 rounded-lg p-3">
+              <div className="text-xs text-gray-500 mb-1">Entry</div>
+              <div className="text-sm font-semibold text-white">${pick.entryPrice.toFixed(2)}</div>
+            </div>
+            <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-3">
+              <div className="text-xs text-emerald-400 mb-1">Target</div>
+              <div className="text-sm font-semibold text-emerald-400">${pick.targetPrice.toFixed(2)}</div>
+            </div>
+            <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3">
+              <div className="text-xs text-red-400 mb-1">Stop Loss</div>
+              <div className="text-sm font-semibold text-red-400">${pick.stopLoss.toFixed(2)}</div>
+            </div>
           </div>
-          <div className="bg-red-500/10 rounded-lg p-3 text-center border border-red-500/20">
-            <div className="text-xs text-red-400 mb-1">Stop Loss</div>
-            <div className="text-lg font-semibold text-red-300">${pick.stopLoss?.toFixed(2)}</div>
+          
+          {pick.fullReasoning && (
+            <div>
+              <h5 className="text-sm font-semibold text-gray-300 mb-2">Full Analysis</h5>
+              <p className="text-sm text-gray-400 whitespace-pre-wrap">{pick.fullReasoning}</p>
+            </div>
+          )}
+          
+          <div className="grid md:grid-cols-2 gap-4">
+            {pick.keyBullishFactors?.length > 0 && (
+              <div>
+                <h5 className="text-sm font-semibold text-emerald-400 mb-2 flex items-center gap-2">
+                  <TrendingUp className="w-4 h-4" />
+                  Bullish Factors
+                </h5>
+                <ul className="space-y-1">
+                  {pick.keyBullishFactors.map((f, i) => (
+                    <li key={i} className="text-xs text-gray-400 flex items-start gap-2">
+                      <span className="text-emerald-400">•</span>
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {pick.keyBearishFactors?.length > 0 && (
+              <div>
+                <h5 className="text-sm font-semibold text-red-400 mb-2 flex items-center gap-2">
+                  <TrendingDown className="w-4 h-4" />
+                  Bearish Factors
+                </h5>
+                <ul className="space-y-1">
+                  {pick.keyBearishFactors.map((f, i) => (
+                    <li key={i} className="text-xs text-gray-400 flex items-start gap-2">
+                      <span className="text-red-400">•</span>
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
+          
+          {pick.risks?.length > 0 && (
+            <div>
+              <h5 className="text-sm font-semibold text-amber-400 mb-2 flex items-center gap-2">
+                <Shield className="w-4 h-4" />
+                Key Risks
+              </h5>
+              <div className="flex flex-wrap gap-2">
+                {pick.risks.map((r, i) => (
+                  <span key={i} className="px-2 py-1 bg-amber-500/10 text-amber-400 text-xs rounded-full">{r}</span>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
-      </div>
-      
-      <div className="p-4 border-b border-gray-700/50">
-        <h5 className="text-sm font-semibold text-amber-400 mb-2 flex items-center gap-2">
-          <Lightbulb className="w-4 h-4" /> {config.name}'s Thesis
-        </h5>
-        <p className="text-sm text-gray-300">{pick.thesis}</p>
-      </div>
-      
-      <div className="p-4 border-b border-gray-700/50">
-        <button 
-          onClick={() => setShowFull(!showFull)}
-          className="w-full flex items-center justify-between text-left"
-        >
-          <h5 className="text-sm font-semibold text-white flex items-center gap-2">
-            <Brain className="w-4 h-4" /> Full Analysis
-          </h5>
-          {showFull ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
-        </button>
-        {showFull && (
-          <div className="mt-3 p-3 bg-gray-900/50 rounded-lg">
-            <p className="text-sm text-gray-300 leading-relaxed whitespace-pre-wrap">{pick.fullReasoning}</p>
-          </div>
-        )}
-      </div>
-      
-      <div className="p-4 grid md:grid-cols-2 gap-4">
-        {pick.keyBullishFactors?.length > 0 && (
-          <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-3">
-            <h5 className="text-sm font-semibold text-emerald-400 mb-2">Bullish Factors</h5>
-            <ul className="space-y-1.5">
-              {pick.keyBullishFactors.map((factor, i) => (
-                <li key={i} className="text-sm text-gray-300 flex items-start gap-2">
-                  <span className="text-emerald-500 mt-0.5">•</span>
-                  {factor}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-        
-        {pick.keyBearishFactors?.length > 0 && (
-          <div className="bg-red-500/5 border border-red-500/20 rounded-xl p-3">
-            <h5 className="text-sm font-semibold text-red-400 mb-2">Bearish Factors</h5>
-            <ul className="space-y-1.5">
-              {pick.keyBearishFactors.map((factor, i) => (
-                <li key={i} className="text-sm text-gray-300 flex items-start gap-2">
-                  <span className="text-red-500 mt-0.5">•</span>
-                  {factor}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-      </div>
+      )}
     </div>
   );
 }
 
 // Stock Detail Modal
-function StockDetailModal({ 
-  analysis, 
-  onClose 
-}: { 
-  analysis: StockAnalysis; 
-  onClose: () => void;
-}) {
+function StockDetailModal({ analysis, onClose }: { analysis: StockAnalysis; onClose: () => void }) {
   const [activeTab, setActiveTab] = useState<string>('all');
   
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" onClick={onClose}>
-      <div 
-        className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col"
-        onClick={e => e.stopPropagation()}
-      >
-        <div className="p-6 border-b border-gray-700 flex items-center justify-between bg-gradient-to-r from-gray-800 to-gray-900">
-          <div>
-            <div className="flex items-center gap-3">
-              <h2 className="text-3xl font-bold text-white">{analysis.symbol}</h2>
-              {analysis.consensus && (
-                <DirectionBadge direction={analysis.consensus.consensusDirection} size="lg" />
-              )}
+      <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
+        <div className="p-6 border-b border-gray-700 flex items-center justify-between flex-shrink-0">
+          <div className="flex items-center gap-4">
+            <div>
+              <div className="flex items-center gap-3">
+                <h2 className="text-2xl font-bold text-white">{analysis.symbol}</h2>
+                {analysis.consensus && <DirectionBadge direction={analysis.consensus.consensusDirection} size="lg" />}
+              </div>
+              <p className="text-gray-400">{analysis.companyName}</p>
             </div>
-            <p className="text-gray-400">{analysis.picks[0]?.companyName}</p>
           </div>
           <button onClick={onClose} className="p-2 rounded-lg bg-gray-800 hover:bg-gray-700">
-            <X className="w-6 h-6 text-gray-400" />
+            <X className="w-5 h-5 text-gray-400" />
           </button>
         </div>
         
         {analysis.consensus && (
-          <div className="p-4 bg-gradient-to-r from-amber-500/10 to-orange-500/10 border-b border-amber-500/20">
+          <div className="p-4 bg-gradient-to-r from-amber-500/10 to-orange-500/10 border-b border-gray-700 flex-shrink-0">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center">
                 <Sparkles className="w-6 h-6 text-white" />
               </div>
               <div className="flex-1">
                 <div className="flex items-center gap-2">
-                  <span className="text-amber-400 font-semibold">Javari Consensus:</span>
-                  <DirectionBadge direction={analysis.consensus.consensusDirection} />
-                  <span className="text-white font-bold">{analysis.consensus.javariConfidence?.toFixed(0)}%</span>
+                  <h3 className="font-semibold text-white">Javari Consensus</h3>
+                  <span className="text-2xl font-bold text-amber-400">{analysis.consensus.javariConfidence?.toFixed(0)}%</span>
                 </div>
-                <p className="text-sm text-gray-300 mt-1">{analysis.consensus.javariReasoning}</p>
+                <p className="text-sm text-gray-400">{analysis.consensus.javariReasoning}</p>
               </div>
             </div>
           </div>
         )}
         
-        <div className="flex border-b border-gray-700 px-4 overflow-x-auto">
+        <div className="flex border-b border-gray-700 overflow-x-auto flex-shrink-0">
           <button
             onClick={() => setActiveTab('all')}
-            className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
-              activeTab === 'all' ? 'border-amber-500 text-amber-400' : 'border-transparent text-gray-400 hover:text-white'
-            }`}
+            className={`px-4 py-3 text-sm font-medium transition-colors ${activeTab === 'all' ? 'text-amber-400 border-b-2 border-amber-400' : 'text-gray-400 hover:text-white'}`}
           >
             All AIs ({analysis.picks.length})
           </button>
@@ -389,14 +487,12 @@ function StockDetailModal({
             const config = AI_CONFIG[pick.aiModel] || AI_CONFIG.gpt4;
             return (
               <button
-                key={pick.id}
+                key={pick.aiModel}
                 onClick={() => setActiveTab(pick.aiModel)}
-                className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap flex items-center gap-2 ${
-                  activeTab === pick.aiModel ? 'border-amber-500 text-amber-400' : 'border-transparent text-gray-400 hover:text-white'
-                }`}
+                className={`px-4 py-3 text-sm font-medium transition-colors flex items-center gap-2 ${activeTab === pick.aiModel ? 'text-amber-400 border-b-2 border-amber-400' : 'text-gray-400 hover:text-white'}`}
               >
-                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: config.color }} />
                 {config.name}
+                <DirectionBadge direction={pick.direction} size="sm" />
               </button>
             );
           })}
@@ -502,15 +598,21 @@ function HelpPanel({ onClose }: { onClose: () => void }) {
 // Main Dashboard Component
 export default function AIDashboardContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const { user, credits, loading: authLoading } = useAuthContext();
   
-  const [symbol, setSymbol] = useState(searchParams.get('analyze') || '');
+  const analyzeParam = searchParams.get('analyze');
+  const [symbol, setSymbol] = useState('');
   const [loading, setLoading] = useState(false);
   const [analyses, setAnalyses] = useState<StockAnalysis[]>([]);
   const [selectedAnalysis, setSelectedAnalysis] = useState<StockAnalysis | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showHelp, setShowHelp] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
+  const [pendingAnalysis, setPendingAnalysis] = useState<string | null>(null);
+  
+  // Track if we've already processed the URL param
+  const processedParamRef = useRef(false);
   
   const groupPicksBySymbol = useCallback((picks: AIPick[], consensusData?: Record<string, ConsensusData>): StockAnalysis[] => {
     const grouped: Record<string, StockAnalysis> = {};
@@ -533,6 +635,7 @@ export default function AIDashboardContent() {
     });
   }, []);
   
+  // Load existing picks
   useEffect(() => {
     const loadPicks = async () => {
       try {
@@ -550,12 +653,40 @@ export default function AIDashboardContent() {
     loadPicks();
   }, [groupPicksBySymbol]);
   
+  // Handle analyze param from URL - resolve company name to symbol
+  useEffect(() => {
+    if (analyzeParam && !processedParamRef.current) {
+      const resolvedSymbol = resolveToSymbol(analyzeParam);
+      setSymbol(resolvedSymbol);
+      setPendingAnalysis(resolvedSymbol);
+      processedParamRef.current = true;
+    }
+  }, [analyzeParam]);
+  
+  // Auto-trigger analysis when user logs in and we have a pending analysis
+  useEffect(() => {
+    if (pendingAnalysis && user && !authLoading && credits >= CREDIT_COSTS.FULL_ANALYSIS) {
+      handleAnalyze(pendingAnalysis);
+      setPendingAnalysis(null);
+      // Clear the URL param
+      router.replace('/ai-picks', { scroll: false });
+    } else if (pendingAnalysis && !user && !authLoading) {
+      // User not logged in - show login modal
+      setShowLogin(true);
+    }
+  }, [pendingAnalysis, user, authLoading, credits]);
+  
   const handleAnalyze = async (sym?: string) => {
-    const targetSymbol = (sym || symbol).toUpperCase().trim();
+    const rawInput = sym || symbol;
+    const targetSymbol = resolveToSymbol(rawInput);
     if (!targetSymbol) return;
+    
+    // Update the input field with resolved symbol
+    setSymbol(targetSymbol);
     
     // Check if user is logged in
     if (!user) {
+      setPendingAnalysis(targetSymbol);
       setShowLogin(true);
       return;
     }
@@ -602,6 +733,12 @@ export default function AIDashboardContent() {
     } finally {
       setLoading(false);
     }
+  };
+  
+  // Handle successful login - trigger pending analysis
+  const handleLoginClose = () => {
+    setShowLogin(false);
+    // The useEffect watching pendingAnalysis will handle triggering the analysis
   };
   
   return (
@@ -653,6 +790,17 @@ export default function AIDashboardContent() {
           <div className="mb-4 flex items-center gap-2 text-sm text-gray-400">
             <Coins className="w-4 h-4 text-amber-400" />
             <span>Analysis costs <strong className="text-amber-400">{CREDIT_COSTS.FULL_ANALYSIS} credits</strong> • Your balance: <strong className="text-white">{credits}</strong></span>
+          </div>
+        )}
+        
+        {/* Pending Analysis Notice */}
+        {pendingAnalysis && !user && !authLoading && (
+          <div className="mb-4 p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl flex items-center gap-3">
+            <AlertCircle className="w-5 h-5 text-amber-400 flex-shrink-0" />
+            <div>
+              <p className="text-amber-400 font-medium">Sign in to analyze {pendingAnalysis}</p>
+              <p className="text-sm text-gray-400">Your search will continue automatically after you sign in.</p>
+            </div>
           </div>
         )}
         
@@ -717,7 +865,7 @@ export default function AIDashboardContent() {
       
       {selectedAnalysis && <StockDetailModal analysis={selectedAnalysis} onClose={() => setSelectedAnalysis(null)} />}
       {showHelp && <HelpPanel onClose={() => setShowHelp(false)} />}
-      {showLogin && <LoginModal isOpen={showLogin} onClose={() => setShowLogin(false)} />}
+      {showLogin && <LoginModal isOpen={showLogin} onClose={handleLoginClose} />}
     </div>
   );
 }
