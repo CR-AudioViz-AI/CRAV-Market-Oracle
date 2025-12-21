@@ -743,48 +743,18 @@ export default function AIDashboardContent() {
   
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-950 via-gray-900 to-gray-950">
-      {/* Header */}
-      <header className="bg-gray-900/80 backdrop-blur-xl border-b border-gray-800 sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center">
-                <TrendingUp className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold text-white">Market Oracle</h1>
-                <p className="text-xs text-gray-400">Multi-AI Stock Analysis</p>
-              </div>
-            </div>
-            
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setShowHelp(true)}
-                className="flex items-center gap-2 px-3 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors"
-              >
-                <HelpCircle className="w-4 h-4 text-amber-400" />
-                <span className="text-sm text-gray-300 hidden sm:inline">How It Works</span>
-              </button>
-              
-              {authLoading ? (
-                <div className="w-8 h-8 rounded-full bg-gray-700 animate-pulse" />
-              ) : user ? (
-                <UserMenu />
-              ) : (
-                <button
-                  onClick={() => setShowLogin(true)}
-                  className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-600 text-white font-medium rounded-lg hover:shadow-lg transition-all"
-                >
-                  <LogIn className="w-4 h-4" />
-                  Sign In
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      </header>
-      
+      {/* Page Content - Global Header is in layout.tsx */}
       <main className="max-w-7xl mx-auto px-4 py-8">
+        {/* How It Works Button - Floating */}
+        <div className="flex justify-end mb-4">
+          <button
+            onClick={() => setShowHelp(true)}
+            className="flex items-center gap-2 px-3 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors"
+          >
+            <HelpCircle className="w-4 h-4 text-amber-400" />
+            <span className="text-sm text-gray-300">How It Works</span>
+          </button>
+        </div>
         {/* Credit Cost Notice */}
         {user && (
           <div className="mb-4 flex items-center gap-2 text-sm text-gray-400">
