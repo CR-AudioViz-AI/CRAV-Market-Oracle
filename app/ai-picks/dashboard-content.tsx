@@ -133,208 +133,31 @@ interface StockAnalysis {
   consensus: ConsensusData | null;
 }
 
-// AI Model Colors & Config - 22 Models across 3 Tiers
-const AI_CONFIG: Record<string, { color: string; gradient: string; name: string; description: string; tier: string; avatar: string }> = {
-  // LARGE TIER - Premium Flagship Models
-  'gpt-4-turbo': { 
-    color: '#10A37F', 
-    gradient: 'from-emerald-500 to-teal-600',
-    name: 'Oracle GPT',
-    description: 'OpenAI flagship with superior reasoning',
-    tier: 'large',
-    avatar: '🔮'
-  },
-  'claude-3-opus': { 
-    color: '#D97706', 
-    gradient: 'from-amber-500 to-orange-600',
-    name: 'Claude Sage',
-    description: 'Anthropic most capable model',
-    tier: 'large',
-    avatar: '🧙'
-  },
-  'gemini-ultra': { 
-    color: '#4285F4', 
-    gradient: 'from-blue-500 to-indigo-600',
-    name: 'Gemini Titan',
-    description: 'Google most powerful model',
-    tier: 'large',
-    avatar: '⚡'
-  },
-  'sonar-large': { 
-    color: '#8B5CF6', 
-    gradient: 'from-violet-500 to-purple-600',
-    name: 'Perplexity Pro',
-    description: 'Perplexity with real-time web search',
-    tier: 'large',
-    avatar: '🌐'
-  },
-  'grok-2': { 
-    color: '#1DA1F2', 
-    gradient: 'from-blue-400 to-cyan-500',
-    name: 'Grok Oracle',
-    description: 'xAI flagship with real-time data',
-    tier: 'large',
-    avatar: '🚀'
-  },
-  
-  // MEDIUM TIER - Balanced Performance
-  'gpt-4': { 
-    color: '#10A37F', 
-    gradient: 'from-emerald-400 to-teal-500',
-    name: 'GPT Balanced',
-    description: 'OpenAI reliable workhorse',
-    tier: 'medium',
-    avatar: '⚖️'
-  },
-  'claude-3-sonnet': { 
-    color: '#D97706', 
-    gradient: 'from-amber-400 to-yellow-500',
-    name: 'Claude Analyst',
-    description: 'Anthropic balanced intelligence',
-    tier: 'medium',
-    avatar: '📊'
-  },
-  'gemini-pro': { 
-    color: '#4285F4', 
-    gradient: 'from-blue-400 to-sky-500',
-    name: 'Gemini Scout',
-    description: 'Google versatile model',
-    tier: 'medium',
-    avatar: '🔍'
-  },
-  'sonar-medium': { 
-    color: '#8B5CF6', 
-    gradient: 'from-purple-400 to-pink-500',
-    name: 'Perplexity Scout',
-    description: 'Real-time market intelligence',
-    tier: 'medium',
-    avatar: '📡'
-  },
-  'mixtral-large': { 
-    color: '#FF6B35', 
-    gradient: 'from-orange-400 to-red-500',
-    name: 'Mixtral Expert',
-    description: 'Mistral mixture of experts',
-    tier: 'medium',
-    avatar: '🎯'
-  },
-  'llama-3-70b': { 
-    color: '#6366F1', 
-    gradient: 'from-indigo-400 to-violet-500',
-    name: 'Llama Speedster',
-    description: 'Meta open-source powerhouse',
-    tier: 'medium',
-    avatar: '🦙'
-  },
-  'command-r-plus': { 
-    color: '#39D353', 
-    gradient: 'from-green-400 to-emerald-500',
-    name: 'Cohere Commander',
-    description: 'Cohere enterprise-grade',
-    tier: 'medium',
-    avatar: '🎖️'
-  },
-  
-  // SMALL TIER - Fast & Efficient
-  'gpt-4o-mini': { 
-    color: '#10A37F', 
-    gradient: 'from-teal-300 to-green-400',
-    name: 'GPT Swift',
-    description: 'OpenAI fast and efficient',
-    tier: 'small',
-    avatar: '⚡'
-  },
-  'claude-3-haiku': { 
-    color: '#D97706', 
-    gradient: 'from-yellow-300 to-amber-400',
-    name: 'Claude Swift',
-    description: 'Anthropic lightning fast',
-    tier: 'small',
-    avatar: '🏃'
-  },
-  'gemini-flash': { 
-    color: '#4285F4', 
-    gradient: 'from-cyan-300 to-blue-400',
-    name: 'Gemini Flash',
-    description: 'Google speed optimized',
-    tier: 'small',
-    avatar: '💨'
-  },
-  'sonar-small': { 
-    color: '#8B5CF6', 
-    gradient: 'from-pink-300 to-purple-400',
-    name: 'Sonar Quick',
-    description: 'Perplexity rapid search',
-    tier: 'small',
-    avatar: '🔊'
-  },
-  'llama-3-8b': { 
-    color: '#6366F1', 
-    gradient: 'from-violet-300 to-indigo-400',
-    name: 'Llama Quick',
-    description: 'Meta efficient model',
-    tier: 'small',
-    avatar: '🦙'
-  },
-  'mixtral-8x7b': { 
-    color: '#FF6B35', 
-    gradient: 'from-red-300 to-orange-400',
-    name: 'Mixtral Mix',
-    description: 'Mistral sparse MoE',
-    tier: 'small',
-    avatar: '🎲'
-  },
-  'phi-3': { 
-    color: '#00BCF2', 
-    gradient: 'from-sky-300 to-cyan-400',
-    name: 'Phi Compact',
-    description: 'Microsoft small language model',
-    tier: 'small',
-    avatar: '🔬'
-  },
-  
-  // JAVARI PRIME - Meta AI
-  'javari-prime': { 
-    color: '#06B6D4', 
-    gradient: 'from-cyan-500 to-teal-600',
-    name: 'Javari Prime',
-    description: 'Multi-AI consensus engine',
-    tier: 'javari',
-    avatar: '🏆'
-  },
-  
-  // Legacy model names (backward compatibility)
+// AI Model Colors & Config
+const AI_CONFIG: Record<string, { color: string; gradient: string; name: string; description: string }> = {
   gpt4: { 
     color: '#10B981', 
     gradient: 'from-emerald-500 to-teal-600',
     name: 'GPT-4',
-    description: 'Conservative, thorough analysis with deep reasoning',
-    tier: 'large',
-    avatar: '🔮'
+    description: 'Conservative, thorough analysis with deep reasoning'
   },
   perplexity: { 
     color: '#8B5CF6', 
     gradient: 'from-violet-500 to-purple-600',
     name: 'Perplexity',
-    description: 'Real-time web data and breaking news integration',
-    tier: 'medium',
-    avatar: '🌐'
+    description: 'Real-time web data and breaking news integration'
   },
   claude: { 
     color: '#F59E0B', 
     gradient: 'from-amber-500 to-orange-600',
     name: 'Claude',
-    description: 'Balanced analysis with strong risk awareness',
-    tier: 'medium',
-    avatar: '🧙'
+    description: 'Balanced analysis with strong risk awareness'
   },
   gemini: { 
     color: '#3B82F6', 
     gradient: 'from-blue-500 to-indigo-600',
     name: 'Gemini',
-    description: 'Technical patterns and price target focus',
-    tier: 'medium',
-    avatar: '⚡'
+    description: 'Technical patterns and price target focus'
   },
 };
 
