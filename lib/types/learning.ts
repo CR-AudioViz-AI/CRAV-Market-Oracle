@@ -7,7 +7,11 @@
 // AI MODEL DEFINITIONS
 // ============================================================================
 
-export type AIModelName = 'gpt4' | 'claude' | 'gemini' | 'perplexity' | 'javari';
+// Legacy model names (backward compatibility)
+export type LegacyAIModelName = 'gpt4' | 'claude' | 'gemini' | 'perplexity' | 'javari';
+
+// New tiered model IDs (from ai-models.ts)
+export type AIModelName = LegacyAIModelName | string; // Allow any string for new model IDs
 
 export interface AIModelConfig {
   name: AIModelName;
@@ -182,6 +186,11 @@ export interface AIPick {
   hitTarget?: boolean;
   hitStopLoss?: boolean;
   daysHeld?: number;
+  
+  // Tiered competition system (new)
+  tier?: 'small' | 'medium' | 'large' | 'javari';
+  displayName?: string;
+  avatar?: string;
 }
 
 // ============================================================================
