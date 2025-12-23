@@ -270,15 +270,22 @@ async function getTechnicals(symbol: string) {
     if (values.length > 0) sma200 = parseFloat(values[0].SMA);
   }
 
+  // Determine RSI signal
+  let rsiSignal: 'OVERSOLD' | 'NEUTRAL' | 'OVERBOUGHT' = 'NEUTRAL';
+  if (rsi !== null) {
+    if (rsi < 30) rsiSignal = 'OVERSOLD';
+    else if (rsi > 70) rsiSignal = 'OVERBOUGHT';
+  }
+
   return {
     rsi,
-    rsiSignal: rsi ? (rsi < 30 ? 'OVERSOLD' : rsi > 70 ? 'OVERBOUGHT' : 'NEUTRAL') as const : 'NEUTRAL' as const,
+    rsiSignal,
     macd,
     movingAverages: {
       sma50,
       sma200,
-      priceVsSma50: 'ABOVE' as const, // Will be updated with price
-      priceVsSma200: 'ABOVE' as const,
+      priceVsSma50: 'ABOVE' as 'ABOVE' | 'BELOW',
+      priceVsSma200: 'ABOVE' as 'ABOVE' | 'BELOW',
       goldenCross: sma50 !== null && sma200 !== null && sma50 > sma200,
       deathCross: sma50 !== null && sma200 !== null && sma50 < sma200,
     },
