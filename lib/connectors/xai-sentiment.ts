@@ -268,16 +268,19 @@ Include estimated mention counts and sentiment scores (-100 to +100).`,
 /**
  * Compare sentiment between two stocks
  */
+interface ComparisonResult {
+  symbol1Data: SentimentResult
+  symbol2Data: SentimentResult
+  winner: string
+  analysis: string
+}
+
 export async function compareSentiment(
   symbol1: string,
   symbol2: string
 ): Promise<{
   success: boolean
-  comparison?: {
-    [symbol: string]: SentimentResult
-    winner: string
-    analysis: string
-  }
+  comparison?: ComparisonResult
   error?: string
 }> {
   const [result1, result2] = await Promise.all([
@@ -308,8 +311,8 @@ export async function compareSentiment(
   return {
     success: true,
     comparison: {
-      [symbol1]: result1.data,
-      [symbol2]: result2.data,
+      symbol1Data: result1.data,
+      symbol2Data: result2.data,
       winner,
       analysis,
     },
