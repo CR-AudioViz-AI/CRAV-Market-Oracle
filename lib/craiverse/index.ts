@@ -550,7 +550,7 @@ export async function generateReferralCode(userId: string): Promise<string> {
   await supabase
     .from('craiverse_profiles')
     .update({
-      preferences: supabase.sql`preferences || '{"referral_code": "${code}"}'::jsonb`,
+      preferences: { referral_code: code },
     })
     .eq('id', userId);
     
