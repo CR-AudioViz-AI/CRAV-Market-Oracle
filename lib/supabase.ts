@@ -1,7 +1,17 @@
-// lib/supabase.ts
-// CR AudioViz AI - Market Oracle Database & Price Functions
-// TIMESTAMP: 2025-12-20 20:05 EST
-// FIX: Added totalPoints, stockPoints, pennyStockPoints, cryptoPoints to CompetitionLeaderboard
+/**
+ * CR AudioViz AI - Market Oracle Database & Price Functions
+ * ===========================================================
+ * 
+ * This file contains app-specific data functions for Javari Market.
+ * For authentication, credits, and central services, use:
+ * 
+ *   import { CentralServices, CentralAuth, CentralCredits } from './central-services';
+ * 
+ * Auth, payments, and credits should ALWAYS go through central services.
+ */
+
+// Re-export admin utilities from central services
+export { isAdmin, shouldChargeCredits, ADMIN_EMAILS } from './central-services';
 
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 
